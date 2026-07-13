@@ -3,27 +3,33 @@
 
 <#
 .SYNOPSIS
-    Windows 11 初始化設定腳本
+    Windows 11 initial setup script.
 
 .DESCRIPTION
-    執行項目：
-    1. 手動輸入電腦名稱
-    2. 手動輸入 admin 帳號密碼
-    3. 建立或更新指定的本機管理員帳號
-    4. 安裝 PowerShell 7
-    5. 安裝 PSWindowsUpdate
-    6. 安裝所有 Windows Update
-    7. 最後詢問是否重新啟動
+    This script performs the following tasks:
+
+    1. Prompts for a new computer name.
+    2. Prompts for the local admin account password.
+    3. Creates or updates an additional local administrator account.
+    4. Installs or updates PowerShell 7.
+    5. Configures the PowerShell execution policy.
+    6. Installs the NuGet package provider.
+    7. Configures PowerShell Gallery.
+    8. Installs the PSWindowsUpdate module.
+    9. Installs available Windows updates.
+    10. Prompts for a system restart when required.
 
 .NOTES
-    腳本內不包含任何明文密碼，可公開放置於 GitHub。
+    Run this script from Windows PowerShell as Administrator.
+
+    Passwords are entered interactively and are not stored in this script.
 #>
 
 Set-StrictMode -Version Latest
 $ErrorActionPreference = "Stop"
 
 # ============================================================
-# 共用函式
+# Common functions
 # ============================================================
 
 function Write-Step {
@@ -55,6 +61,12 @@ function Test-ValidComputerName {
         [string]$ComputerName
     )
 
+    # Windows computer name rules used by this script:
+    # - Maximum length: 15 characters
+    # - Letters, numbers, and hyphens only
+    # - Cannot begin or end with a hyphen
+    # - Cannot contain only numbers
+
     if ([string]::IsNullOrWhiteSpace($ComputerName)) {
         return $false
     }
@@ -63,13 +75,17 @@ function Test-ValidComputerName {
         return $false
     }
 
-    if ($ComputerName -notmatch '^[A-Za-z0-9][A-Za-z0-9-]*[A-Za-z0-9]$' -and
-        $ComputerName.Length -gt 1) {
+    if (
+        $ComputerName.Length -gt 1 -and
+        $ComputerName -notmatch '^[A-Za-z0-9][A-Za-z0-9-]*[A-Za-z0-9]$'
+    ) {
         return $false
     }
 
-    if ($ComputerName.Length -eq 1 -and
-        $ComputerName -notmatch '^[A-Za-z0-9]$') {
+    if (
+        $ComputerName.Length -eq 1 -and
+        $ComputerName -notmatch '^[A-Za-z0-9]$'
+    ) {
         return $false
     }
 
@@ -94,6 +110,7 @@ function Test-ValidLocalUserName {
         return $false
     }
 
+    # Reject characters that are not valid in Windows local user names.
     if ($UserName -match '[\\/\[\]:;|=,+*?<>@"]') {
         return $false
     }
@@ -109,7 +126,7 @@ function Read-ConfirmedPassword {
 
     while ($true) {
         $Password1 = Read-Host $Prompt -AsSecureString
-        $Password2 = Read-Host "請再次輸入密碼" -AsSecureString
+        $Password2 = Read-Host "Enter the password again to confirm" -AsSecureString
 
         $BSTR1 = [Runtime.InteropServices.Marshal]::SecureStringToBSTR(
             $Password1
@@ -129,12 +146,12 @@ function Read-ConfirmedPassword {
             )
 
             if ([string]::IsNullOrWhiteSpace($PlainPassword1)) {
-                Write-Warning "密碼不可為空白，請重新輸入。"
+                Write-Warning "The password cannot be empty. Please try again."
                 continue
             }
 
             if ($PlainPassword1 -ne $PlainPassword2) {
-                Write-Warning "兩次輸入的密碼不同，請重新輸入。"
+                Write-Warning "The passwords do not match. Please try again."
                 continue
             }
 
@@ -156,8 +173,8 @@ function Read-ConfirmedPassword {
 }
 
 function Get-AdministratorsGroupName {
-    # Administrators 群組的固定 SID
-    # 避免不同語言版本 Windows 群組名稱不同
+    # Use the well-known SID for the local Administrators group.
+    # This works even when Windows uses a localized group name.
 
     $AdministratorsSid = New-Object `
         System.Security.Principal.SecurityIdentifier("S-1-5-32-544")
@@ -188,52 +205,58 @@ function Add-UserToAdministrators {
             -Member $UserName `
             -ErrorAction Stop
 
-        Write-Host "已將 '$UserName' 加入 '$AdministratorsGroup' 群組。" `
+        Write-Host `
+            "User '$UserName' was added to the '$AdministratorsGroup' group." `
             -ForegroundColor Green
     }
     else {
-        Write-Host "帳號 '$UserName' 已經是本機管理員。" `
+        Write-Host `
+            "User '$UserName' is already a local administrator." `
             -ForegroundColor Gray
     }
 }
 
 # ============================================================
-# 檢查系統管理員權限
+# Verify administrator privileges
 # ============================================================
 
 if (-not (Test-IsAdministrator)) {
     Write-Host ""
-    Write-Error "此腳本必須使用系統管理員身分執行。"
-    Write-Host "請在 Windows PowerShell 上按右鍵，選擇「以系統管理員身分執行」。"
+    Write-Error "This script must be run as Administrator."
+    Write-Host "Right-click Windows PowerShell and select 'Run as administrator'."
     exit 1
 }
 
 Clear-Host
 
 Write-Host "============================================================" -ForegroundColor Green
-Write-Host " Windows 11 初始化設定" -ForegroundColor Green
+Write-Host " Windows 11 Initial Setup" -ForegroundColor Green
 Write-Host "============================================================" -ForegroundColor Green
 Write-Host ""
-Write-Host "目前電腦名稱：$env:COMPUTERNAME"
-Write-Host "目前執行帳號：$env:USERDOMAIN\$env:USERNAME"
+Write-Host "Current computer name: $env:COMPUTERNAME"
+Write-Host "Current account: $env:USERDOMAIN\$env:USERNAME"
 Write-Host ""
-Write-Host "請先輸入本次初始化所需資料。" -ForegroundColor Yellow
-Write-Host "所有密碼只保存在目前 PowerShell 工作階段，不會寫入腳本。" `
+Write-Host "Enter the information required for this setup." -ForegroundColor Yellow
+Write-Host `
+    "Passwords are kept only in the current PowerShell session." `
+    -ForegroundColor Yellow
+Write-Host `
+    "Passwords are not written to the script or saved to disk." `
     -ForegroundColor Yellow
 
 # ============================================================
-# 腳本開始時收集所有輸入資料
+# Collect setup information at the beginning
 # ============================================================
 
-Write-Step "初始化資料輸入"
+Write-Step "Setup Information"
 
 # ------------------------------------------------------------
-# 輸入電腦名稱
+# Prompt for the new computer name
 # ------------------------------------------------------------
 
 while ($true) {
     $InputComputerName = Read-Host `
-        "請輸入新電腦名稱，直接按 Enter 保留目前名稱 [$env:COMPUTERNAME]"
+        "Enter the new computer name, or press Enter to keep [$env:COMPUTERNAME]"
 
     if ([string]::IsNullOrWhiteSpace($InputComputerName)) {
         $ComputerName = $env:COMPUTERNAME
@@ -243,8 +266,9 @@ while ($true) {
     $ComputerName = $InputComputerName.Trim().ToUpperInvariant()
 
     if (-not (Test-ValidComputerName -ComputerName $ComputerName)) {
-        Write-Warning "電腦名稱格式錯誤。"
-        Write-Warning "限 1 至 15 個英文字母、數字或減號，且不可全部為數字。"
+        Write-Warning "The computer name is not valid."
+        Write-Warning `
+            "Use 1 to 15 letters, numbers, or hyphens. It cannot contain only numbers."
         continue
     }
 
@@ -252,27 +276,31 @@ while ($true) {
 }
 
 # ------------------------------------------------------------
-# 輸入 admin 帳號密碼
+# Prompt for the local admin account password
 # ------------------------------------------------------------
 
 Write-Host ""
-Write-Host "請輸入本機 admin 帳號的新密碼。" -ForegroundColor Yellow
+Write-Host `
+    "Enter the new password for the local admin account." `
+    -ForegroundColor Yellow
 
 $AdminPassword = Read-ConfirmedPassword `
-    -Prompt "admin 新密碼"
+    -Prompt "Enter the new password for admin"
 
 # ------------------------------------------------------------
-# 輸入預設使用者名稱
+# Prompt for an additional local user name
 # ------------------------------------------------------------
 
 Write-Host ""
 
 while ($true) {
-    $Account = Read-Host "請輸入要建立或更新的本機使用者名稱"
+    $Account = Read-Host `
+        "Enter the local user name to create or update"
 
     if (-not (Test-ValidLocalUserName -UserName $Account)) {
-        Write-Warning "帳號名稱格式錯誤。"
-        Write-Warning "帳號不可為空白、不可超過 20 個字元，且不可包含 Windows 保留字元。"
+        Write-Warning "The user name is not valid."
+        Write-Warning `
+            "The name cannot be empty, exceed 20 characters, or contain reserved characters."
         continue
     }
 
@@ -281,25 +309,29 @@ while ($true) {
 }
 
 # ------------------------------------------------------------
-# 輸入預設使用者密碼
+# Prompt for the additional local user's password
 # ------------------------------------------------------------
 
 Write-Host ""
-Write-Host "請輸入帳號 '$Account' 的密碼。" -ForegroundColor Yellow
+Write-Host `
+    "Enter the password for user '$Account'." `
+    -ForegroundColor Yellow
 
 $AccountPassword = Read-ConfirmedPassword `
-    -Prompt "$Account 新密碼"
+    -Prompt "Enter the new password for $Account"
 
 Write-Host ""
-Write-Host "初始化資料輸入完成，開始執行設定。" -ForegroundColor Green
+Write-Host `
+    "Setup information has been collected. Starting configuration." `
+    -ForegroundColor Green
 
 $RestartRequired = $false
 
 # ============================================================
-# 1. 設定電腦名稱
+# Step 1: Change the computer name
 # ============================================================
 
-Write-Step "步驟 1：設定電腦名稱"
+Write-Step "Step 1: Configure Computer Name"
 
 if ($ComputerName -ne $env:COMPUTERNAME) {
     try {
@@ -308,29 +340,33 @@ if ($ComputerName -ne $env:COMPUTERNAME) {
             -Force `
             -ErrorAction Stop
 
-        Write-Host "電腦名稱已設定為：$ComputerName" `
+        Write-Host `
+            "The computer name was changed to: $ComputerName" `
             -ForegroundColor Green
 
-        Write-Host "重新啟動後，新電腦名稱才會完全生效。" `
+        Write-Host `
+            "The new computer name will take full effect after a restart." `
             -ForegroundColor Yellow
 
         $RestartRequired = $true
     }
     catch {
-        Write-Error "修改電腦名稱失敗：$($_.Exception.Message)"
+        Write-Error `
+            "Failed to change the computer name: $($_.Exception.Message)"
         exit 1
     }
 }
 else {
-    Write-Host "保留目前電腦名稱：$ComputerName" `
+    Write-Host `
+        "The current computer name will be kept: $ComputerName" `
         -ForegroundColor Gray
 }
 
 # ============================================================
-# 2. 設定或建立 admin 帳號
+# Step 2: Create or update the local admin account
 # ============================================================
 
-Write-Step "步驟 2：設定本機 admin 帳號"
+Write-Step "Step 2: Configure Local Admin Account"
 
 $AdminAccountName = "admin"
 
@@ -340,7 +376,8 @@ try {
         -ErrorAction SilentlyContinue
 
     if ($null -eq $AdminAccount) {
-        Write-Host "找不到本機帳號 '$AdminAccountName'，準備建立。" `
+        Write-Host `
+            "The local account '$AdminAccountName' does not exist. Creating it now." `
             -ForegroundColor Yellow
 
         New-LocalUser `
@@ -351,7 +388,8 @@ try {
             -AccountNeverExpires `
             -ErrorAction Stop
 
-        Write-Host "已建立本機帳號：$AdminAccountName" `
+        Write-Host `
+            "Local account '$AdminAccountName' was created." `
             -ForegroundColor Green
     }
     else {
@@ -360,7 +398,8 @@ try {
             -Password $AdminPassword `
             -ErrorAction Stop
 
-        Write-Host "已更新 '$AdminAccountName' 帳號密碼。" `
+        Write-Host `
+            "The password for '$AdminAccountName' was updated." `
             -ForegroundColor Green
     }
 
@@ -373,7 +412,8 @@ try {
             -Name $AdminAccountName `
             -ErrorAction Stop
 
-        Write-Host "已啟用 '$AdminAccountName' 帳號。" `
+        Write-Host `
+            "Account '$AdminAccountName' was enabled." `
             -ForegroundColor Green
     }
 
@@ -381,18 +421,19 @@ try {
         -UserName $AdminAccountName
 }
 catch {
-    Write-Error "設定 '$AdminAccountName' 帳號失敗：$($_.Exception.Message)"
+    Write-Error `
+        "Failed to configure account '$AdminAccountName': $($_.Exception.Message)"
     exit 1
 }
 
-# 用完後清除變數參照
+# Remove the password variable reference after use.
 $AdminPassword = $null
 
 # ============================================================
-# 3. 建立或更新預設本機管理員帳號
+# Step 3: Create or update the additional administrator account
 # ============================================================
 
-Write-Step "步驟 3：建立或更新本機管理員帳號"
+Write-Step "Step 3: Configure Additional Local Administrator"
 
 try {
     $ExistingAccount = Get-LocalUser `
@@ -408,7 +449,8 @@ try {
             -AccountNeverExpires `
             -ErrorAction Stop
 
-        Write-Host "已建立本機帳號：$Account" `
+        Write-Host `
+            "Local account '$Account' was created." `
             -ForegroundColor Green
     }
     else {
@@ -417,7 +459,8 @@ try {
             -Password $AccountPassword `
             -ErrorAction Stop
 
-        Write-Host "帳號 '$Account' 已存在，已更新密碼。" `
+        Write-Host `
+            "Account '$Account' already exists. Its password was updated." `
             -ForegroundColor Yellow
     }
 
@@ -430,7 +473,8 @@ try {
             -Name $Account `
             -ErrorAction Stop
 
-        Write-Host "已啟用帳號：$Account" `
+        Write-Host `
+            "Account '$Account' was enabled." `
             -ForegroundColor Green
     }
 
@@ -438,35 +482,38 @@ try {
         -UserName $Account
 }
 catch {
-    Write-Error "建立或更新本機帳號失敗：$($_.Exception.Message)"
+    Write-Error `
+        "Failed to create or update local account '$Account': $($_.Exception.Message)"
     exit 1
 }
 
-# 用完後清除變數參照
+# Remove the password variable reference after use.
 $AccountPassword = $null
 
 # ============================================================
-# 4. 安裝或更新 PowerShell 7
+# Step 4: Install or update PowerShell 7
 # ============================================================
 
-Write-Step "步驟 4：安裝或更新 PowerShell 7"
+Write-Step "Step 4: Install or Update PowerShell 7"
 
 $WingetCommand = Get-Command `
     winget.exe `
     -ErrorAction SilentlyContinue
 
 if ($null -eq $WingetCommand) {
-    Write-Warning "找不到 winget.exe。"
-    Write-Warning "請確認 Windows 11 已安裝 Microsoft App Installer。"
-    Write-Warning "本次將略過 PowerShell 7 安裝。"
+    Write-Warning "winget.exe was not found."
+    Write-Warning `
+        "Make sure Microsoft App Installer is installed on Windows 11."
+    Write-Warning "PowerShell 7 installation will be skipped."
 }
 else {
     try {
-        Write-Host "目前 winget 版本：" -ForegroundColor Gray
+        Write-Host "Installed winget version:" -ForegroundColor Gray
         winget --version
 
         Write-Host ""
-        Write-Host "正在安裝或更新 PowerShell 7..." `
+        Write-Host `
+            "Checking for a PowerShell 7 upgrade..." `
             -ForegroundColor Yellow
 
         winget upgrade `
@@ -475,12 +522,14 @@ else {
             --source winget `
             --accept-source-agreements `
             --accept-package-agreements `
-            --silent
+            --silent `
+            --disable-interactivity
 
         $WingetUpgradeExitCode = $LASTEXITCODE
 
         if ($WingetUpgradeExitCode -ne 0) {
-            Write-Host "未偵測到可升級版本，嘗試安裝 PowerShell 7..." `
+            Write-Host `
+                "No upgrade was completed. Attempting to install PowerShell 7..." `
                 -ForegroundColor Yellow
 
             winget install `
@@ -489,55 +538,66 @@ else {
                 --source winget `
                 --accept-source-agreements `
                 --accept-package-agreements `
-                --silent
+                --silent `
+                --disable-interactivity
 
             $WingetInstallExitCode = $LASTEXITCODE
 
             if ($WingetInstallExitCode -eq 0) {
-                Write-Host "PowerShell 7 安裝完成。" `
+                Write-Host `
+                    "PowerShell 7 installation completed." `
                     -ForegroundColor Green
             }
             else {
-                Write-Warning "PowerShell 7 安裝命令回傳代碼：$WingetInstallExitCode"
+                Write-Warning `
+                    "The PowerShell 7 install command returned exit code $WingetInstallExitCode."
             }
         }
         else {
-            Write-Host "PowerShell 7 更新完成。" `
+            Write-Host `
+                "PowerShell 7 upgrade completed." `
                 -ForegroundColor Green
         }
     }
     catch {
-        Write-Warning "安裝或更新 PowerShell 7 時發生錯誤：$($_.Exception.Message)"
+        Write-Warning `
+            "An error occurred while installing or updating PowerShell 7: $($_.Exception.Message)"
     }
 }
 
 # ============================================================
-# 5. 設定 PowerShell 執行原則
+# Step 5: Configure the PowerShell execution policy
 # ============================================================
 
-Write-Step "步驟 5：設定 PowerShell 執行原則"
+Write-Step "Step 5: Configure PowerShell Execution Policy"
 
 try {
+    # RemoteSigned allows locally created scripts to run.
+    # Files downloaded from the Internet may need to be unblocked.
+
     Set-ExecutionPolicy `
         -ExecutionPolicy RemoteSigned `
         -Scope CurrentUser `
         -Force `
         -ErrorAction Stop
 
-    Write-Host "CurrentUser 執行原則已設定為 RemoteSigned。" `
+    Write-Host `
+        "The CurrentUser execution policy was set to RemoteSigned." `
         -ForegroundColor Green
 }
 catch {
-    Write-Warning "設定 PowerShell 執行原則失敗：$($_.Exception.Message)"
+    Write-Warning `
+        "Failed to configure the PowerShell execution policy: $($_.Exception.Message)"
 }
 
 # ============================================================
-# 6. 安裝 NuGet Package Provider
+# Step 6: Install the NuGet package provider
 # ============================================================
 
-Write-Step "步驟 6：安裝 NuGet Package Provider"
+Write-Step "Step 6: Install NuGet Package Provider"
 
 try {
+    # Enable TLS 1.2 for PowerShell Gallery connections.
     [Net.ServicePointManager]::SecurityProtocol = `
         [Net.ServicePointManager]::SecurityProtocol -bor `
         [Net.SecurityProtocolType]::Tls12
@@ -560,24 +620,27 @@ try {
             -Confirm:$false `
             -ErrorAction Stop
 
-        Write-Host "NuGet Package Provider 安裝完成。" `
+        Write-Host `
+            "The NuGet package provider was installed." `
             -ForegroundColor Green
     }
     else {
-        Write-Host "NuGet Package Provider 已安裝，版本：$($NuGetProvider.Version)" `
+        Write-Host `
+            "NuGet package provider is already installed. Version: $($NuGetProvider.Version)" `
             -ForegroundColor Gray
     }
 }
 catch {
-    Write-Error "安裝 NuGet Package Provider 失敗：$($_.Exception.Message)"
+    Write-Error `
+        "Failed to install the NuGet package provider: $($_.Exception.Message)"
     exit 1
 }
 
 # ============================================================
-# 7. 設定 PSGallery
+# Step 7: Configure PowerShell Gallery
 # ============================================================
 
-Write-Step "步驟 7：設定 PowerShell Gallery"
+Write-Step "Step 7: Configure PowerShell Gallery"
 
 try {
     $PSGallery = Get-PSRepository `
@@ -601,18 +664,20 @@ try {
             -ErrorAction Stop
     }
 
-    Write-Host "PSGallery 已設定完成。" `
+    Write-Host `
+        "PowerShell Gallery configuration completed." `
         -ForegroundColor Green
 }
 catch {
-    Write-Warning "設定 PSGallery 失敗：$($_.Exception.Message)"
+    Write-Warning `
+        "Failed to configure PowerShell Gallery: $($_.Exception.Message)"
 }
 
 # ============================================================
-# 8. 安裝 PSWindowsUpdate
+# Step 8: Install the PSWindowsUpdate module
 # ============================================================
 
-Write-Step "步驟 8：安裝 PSWindowsUpdate"
+Write-Step "Step 8: Install PSWindowsUpdate Module"
 
 try {
     $InstalledModule = Get-Module `
@@ -631,17 +696,29 @@ try {
             -Confirm:$false `
             -ErrorAction Stop
 
-        Write-Host "PSWindowsUpdate 安裝完成。" `
+        Write-Host `
+            "The PSWindowsUpdate module was installed." `
             -ForegroundColor Green
     }
     else {
-        Write-Host "目前 PSWindowsUpdate 版本：$($InstalledModule.Version)" `
+        Write-Host `
+            "Installed PSWindowsUpdate version: $($InstalledModule.Version)" `
             -ForegroundColor Gray
 
-        Update-Module `
-            -Name PSWindowsUpdate `
-            -Force `
-            -ErrorAction SilentlyContinue
+        try {
+            Update-Module `
+                -Name PSWindowsUpdate `
+                -Force `
+                -ErrorAction Stop
+
+            Write-Host `
+                "The PSWindowsUpdate module update check completed." `
+                -ForegroundColor Green
+        }
+        catch {
+            Write-Warning `
+                "The existing PSWindowsUpdate module could not be updated: $($_.Exception.Message)"
+        }
     }
 
     Import-Module `
@@ -650,18 +727,20 @@ try {
         -ErrorAction Stop
 }
 catch {
-    Write-Error "安裝或載入 PSWindowsUpdate 失敗：$($_.Exception.Message)"
+    Write-Error `
+        "Failed to install or import PSWindowsUpdate: $($_.Exception.Message)"
     exit 1
 }
 
 # ============================================================
-# 9. 掃描並安裝 Windows Update
+# Step 9: Scan for and install Windows updates
 # ============================================================
 
-Write-Step "步驟 9：掃描並安裝 Windows Update"
+Write-Step "Step 9: Scan for and Install Windows Updates"
 
 try {
-    Write-Host "正在掃描 Windows Update..." `
+    Write-Host `
+        "Scanning for available Windows updates..." `
         -ForegroundColor Yellow
 
     $AvailableUpdates = Get-WindowsUpdate `
@@ -672,12 +751,14 @@ try {
         $null -eq $AvailableUpdates -or
         @($AvailableUpdates).Count -eq 0
     ) {
-        Write-Host "目前沒有可安裝的 Windows 更新。" `
+        Write-Host `
+            "No available Windows updates were found." `
             -ForegroundColor Green
     }
     else {
         Write-Host ""
-        Write-Host "找到以下更新：" `
+        Write-Host `
+            "The following updates are available:" `
             -ForegroundColor Yellow
 
         $AvailableUpdates |
@@ -685,7 +766,8 @@ try {
             Format-Table -AutoSize
 
         Write-Host ""
-        Write-Host "開始安裝所有 Windows Update..." `
+        Write-Host `
+            "Installing all available Windows updates..." `
             -ForegroundColor Yellow
 
         Install-WindowsUpdate `
@@ -695,33 +777,36 @@ try {
             -Verbose `
             -ErrorAction Stop
 
-        Write-Host "Windows Update 安裝程序完成。" `
+        Write-Host `
+            "Windows Update installation completed." `
             -ForegroundColor Green
 
         $RestartRequired = $true
     }
 }
 catch {
-    Write-Warning "執行 Windows Update 時發生錯誤：$($_.Exception.Message)"
+    Write-Warning `
+        "An error occurred while running Windows Update: $($_.Exception.Message)"
 }
 
 # ============================================================
-# 10. 顯示執行結果
+# Step 10: Display the setup result
 # ============================================================
 
-Write-Step "初始化執行結果"
+Write-Step "Setup Results"
 
-Write-Host "電腦名稱：" -NoNewline
+Write-Host "Computer name: " -NoNewline
 Write-Host $ComputerName -ForegroundColor Green
 
-Write-Host "本機 admin 帳號：" -NoNewline
-Write-Host "已設定" -ForegroundColor Green
+Write-Host "Local admin account: " -NoNewline
+Write-Host "Configured" -ForegroundColor Green
 
-Write-Host "新增或更新帳號：" -NoNewline
+Write-Host "Additional local account: " -NoNewline
 Write-Host $Account -ForegroundColor Green
 
-Write-Host "目前執行原則：" -NoNewline
-Write-Host (Get-ExecutionPolicy -Scope CurrentUser) `
+Write-Host "CurrentUser execution policy: " -NoNewline
+Write-Host `
+    (Get-ExecutionPolicy -Scope CurrentUser) `
     -ForegroundColor Green
 
 $PwshCommand = Get-Command `
@@ -729,50 +814,57 @@ $PwshCommand = Get-Command `
     -ErrorAction SilentlyContinue
 
 if ($null -ne $PwshCommand) {
-    Write-Host "PowerShell 7 路徑：" -NoNewline
-    Write-Host $PwshCommand.Source `
+    Write-Host "PowerShell 7 path: " -NoNewline
+    Write-Host `
+        $PwshCommand.Source `
         -ForegroundColor Green
 }
 else {
     $DefaultPwshPath = "$env:ProgramFiles\PowerShell\7\pwsh.exe"
 
     if (Test-Path $DefaultPwshPath) {
-        Write-Host "PowerShell 7 路徑：" -NoNewline
-        Write-Host $DefaultPwshPath `
+        Write-Host "PowerShell 7 path: " -NoNewline
+        Write-Host `
+            $DefaultPwshPath `
             -ForegroundColor Green
     }
     else {
-        Write-Host "PowerShell 7：" -NoNewline
-        Write-Host "目前工作階段尚未偵測到" `
+        Write-Host "PowerShell 7: " -NoNewline
+        Write-Host `
+            "Not detected in the current session" `
             -ForegroundColor Yellow
     }
 }
 
 # ============================================================
-# 11. 詢問重新啟動
+# Step 11: Prompt for restart
 # ============================================================
 
 if ($RestartRequired) {
     Write-Host ""
-    Write-Host "電腦名稱或 Windows Update 需要重新啟動後生效。" `
+    Write-Host `
+        "A restart is required to finish applying the computer name or Windows updates." `
         -ForegroundColor Yellow
 
     $RestartChoice = Read-Host `
-        "是否立即重新啟動？輸入 Y 立即重新啟動，其他鍵稍後手動重新啟動"
+        "Restart now? Enter Y to restart, or press any other key to restart later"
 
     if ($RestartChoice -match '^[Yy]$') {
-        Write-Host "正在重新啟動電腦..." `
+        Write-Host `
+            "Restarting the computer..." `
             -ForegroundColor Yellow
 
         Restart-Computer -Force
     }
     else {
-        Write-Host "請稍後手動重新啟動電腦。" `
+        Write-Host `
+            "Restart the computer manually later." `
             -ForegroundColor Yellow
     }
 }
 else {
     Write-Host ""
-    Write-Host "所有設定已完成，目前不需要重新啟動。" `
+    Write-Host `
+        "Setup completed. A restart is not currently required." `
         -ForegroundColor Green
 }
