@@ -118,59 +118,33 @@ function Test-ValidLocalUserName {
     return $true
 }
 
-function Read-ConfirmedPassword {
+# ============================================================
+# Password input function
+# Password characters will be visible while typing.
+# No confirmation is required.
+# ============================================================
+
+function Read-VisiblePassword {
     param (
         [Parameter(Mandatory)]
         [string]$Prompt
     )
 
     while ($true) {
-        $Password1 = Read-Host $Prompt -AsSecureString
-        $Password2 = Read-Host "Enter the password again to confirm" -AsSecureString
+        $PlainPassword = Read-Host $Prompt
 
-        $BSTR1 = [Runtime.InteropServices.Marshal]::SecureStringToBSTR(
-            $Password1
-        )
-
-        $BSTR2 = [Runtime.InteropServices.Marshal]::SecureStringToBSTR(
-            $Password2
-        )
-
-        try {
-            $PlainPassword1 = [Runtime.InteropServices.Marshal]::PtrToStringBSTR(
-                $BSTR1
-            )
-
-            $PlainPassword2 = [Runtime.InteropServices.Marshal]::PtrToStringBSTR(
-                $BSTR2
-            )
-
-            if ([string]::IsNullOrWhiteSpace($PlainPassword1)) {
-                Write-Warning "The password cannot be empty. Please try again."
-                continue
-            }
-
-            if ($PlainPassword1 -ne $PlainPassword2) {
-                Write-Warning "The passwords do not match. Please try again."
-                continue
-            }
-
-            return $Password1
+        if ([string]::IsNullOrWhiteSpace($PlainPassword)) {
+            Write-Warning "The password cannot be empty. Please try again."
+            continue
         }
-        finally {
-            if ($BSTR1 -ne [IntPtr]::Zero) {
-                [Runtime.InteropServices.Marshal]::ZeroFreeBSTR($BSTR1)
-            }
 
-            if ($BSTR2 -ne [IntPtr]::Zero) {
-                [Runtime.InteropServices.Marshal]::ZeroFreeBSTR($BSTR2)
-            }
-
-            $PlainPassword1 = $null
-            $PlainPassword2 = $null
-        }
+        return ConvertTo-SecureString `
+            -String $PlainPassword `
+            -AsPlainText `
+            -Force
     }
 }
+
 
 function Get-AdministratorsGroupName {
     # Use the well-known SID for the local Administrators group.
@@ -284,7 +258,9 @@ Write-Host `
     "Enter the new password for the local admin account." `
     -ForegroundColor Yellow
 
-$AdminPassword = Read-ConfirmedPassword `
+    Write-Warning "The password will be visible while typing."
+
+$AdminPassword = Read-VisiblePassword `
     -Prompt "Enter the new password for admin"
 
 # ------------------------------------------------------------
@@ -313,17 +289,13 @@ while ($true) {
 # ------------------------------------------------------------
 
 Write-Host ""
-Write-Host `
-    "Enter the password for user '$Account'." `
+Write-Host "Enter the password for user '$Account'." `
     -ForegroundColor Yellow
 
-$AccountPassword = Read-ConfirmedPassword `
-    -Prompt "Enter the new password for $Account"
+Write-Warning "The password will be visible while typing."
 
-Write-Host ""
-Write-Host `
-    "Setup information has been collected. Starting configuration." `
-    -ForegroundColor Green
+$AccountPassword = Read-VisiblePassword `
+    -Prompt "Enter the new password for $Account"
 
 $RestartRequired = $false
 
@@ -384,7 +356,7 @@ try {
             -Name $AdminAccountName `
             -Password $AdminPassword `
             -FullName "Local Administrator" `
-            -Description "Local administrator account" `
+            -Description "Local administrator" `
             -AccountNeverExpires `
             -ErrorAction Stop
 
@@ -445,7 +417,7 @@ try {
             -Name $Account `
             -Password $AccountPassword `
             -FullName $Account `
-            -Description "Local administrator account created by setup script" `
+            -Description "Local administrator" `
             -AccountNeverExpires `
             -ErrorAction Stop
 
@@ -487,8 +459,8 @@ catch {
     exit 1
 }
 
-# Remove the password variable reference after use.
 $AccountPassword = $null
+
 
 # ============================================================
 # Step 4: Install or update PowerShell 7
