@@ -808,35 +808,62 @@ else {
     }
 }
 
+```powershell
 # ============================================================
-# Step 11: Prompt for restart
+# Step 11: Restart countdown
 # ============================================================
 
-if ($RestartRequired) {
-    Write-Host ""
-    Write-Host `
-        "A restart is required to finish applying the computer name or Windows updates." `
+Write-Host ""
+Write-Host "============================================================" -ForegroundColor Cyan
+Write-Host "Setup Completed" -ForegroundColor Cyan
+Write-Host "============================================================" -ForegroundColor Cyan
+Write-Host ""
+Write-Host "The computer will restart automatically in 10 seconds." `
+    -ForegroundColor Yellow
+Write-Host "Press Enter within 10 seconds to cancel the restart." `
+    -ForegroundColor Yellow
+Write-Host ""
+
+$RestartCancelled = $false
+$CountdownSeconds = 10
+
+for ($Remaining = $CountdownSeconds; $Remaining -gt 0; $Remaining--) {
+    Write-Host "`rRestarting in $Remaining second(s)... Press Enter to cancel.   " `
+        -NoNewline `
         -ForegroundColor Yellow
 
-    $RestartChoice = Read-Host `
-        "Restart now? Enter Y to restart, or press any other key to restart later"
+    $EndTime = (Get-Date).AddSeconds(1)
 
-    if ($RestartChoice -match '^[Yy]$') {
-        Write-Host `
-            "Restarting the computer..." `
-            -ForegroundColor Yellow
+    while ((Get-Date) -lt $EndTime) {
+        if ([Console]::KeyAvailable) {
+            $Key = [Console]::ReadKey($true)
 
-        Restart-Computer -Force
+            if ($Key.Key -eq [ConsoleKey]::Enter) {
+                $RestartCancelled = $true
+                break
+            }
+        }
+
+        Start-Sleep -Milliseconds 100
     }
-    else {
-        Write-Host `
-            "Restart the computer manually later." `
-            -ForegroundColor Yellow
+
+    if ($RestartCancelled) {
+        break
     }
 }
-else {
-    Write-Host ""
-    Write-Host `
-        "Setup completed. A restart is not currently required." `
+
+Write-Host ""
+
+if ($RestartCancelled) {
+    Write-Host "Automatic restart was cancelled." `
         -ForegroundColor Green
 }
+else {
+    Write-Host "The countdown has completed. Restarting now..." `
+        -ForegroundColor Yellow
+
+    Start-Sleep -Seconds 1
+
+    Restart-Computer -Force
+}
+```
