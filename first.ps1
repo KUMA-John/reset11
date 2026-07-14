@@ -11,8 +11,8 @@ Set-ExecutionPolicy -ExecutionPolicy Bypass -Scope Process -Force
 & $File
 
 
-$Url = "https://raw.githubusercontent.com/KUMA-John/reset11/master/user-setup.ps1"
-$File = "$env:TEMP\user-setup.ps1"
+$Url = "https://raw.githubusercontent.com/KUMA-John/reset11/master/user_setup.ps1"
+$File = "$env:TEMP\user_setup.ps1"
 
 Invoke-WebRequest `
     -Uri $Url `
