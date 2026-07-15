@@ -768,7 +768,6 @@ $ChocolateyPackages = @(
     "slack"
     "telegram"
     "snipaste"
-    "anydesk"
     "element-desktop"
     "googlechrome"
     "nircmd"
@@ -777,10 +776,6 @@ $ChocolateyPackages = @(
 foreach ($Package in $ChocolateyPackages) {
     Install-ChocolateyPackage -PackageName $Package
 }
-
-Install-ChocolateyPackage `
-    -PackageName "anydesk" `
-    -AdditionalArguments @("--ignore-checksums")
 
 Refresh-EnvironmentPath
 
@@ -839,6 +834,24 @@ if (Test-CommandAvailable -CommandName "winget.exe") {
 else {
     Write-Failure "WinGet is still unavailable."
 }
+
+
+# ============================================================
+# Install AnyDesk
+# ============================================================
+
+Write-Step "Install AnyDesk"
+
+$AnyDeskInstalled = Install-WingetPackage `
+    -PackageId "AnyDeskSoftwareGmbH.AnyDesk" `
+    -Source "winget"
+
+if (-not $AnyDeskInstalled) {
+    Write-Failure "AnyDesk installation failed."
+}
+
+
+
 
 # ============================================================
 # Step 6: Install Google Japanese Input
