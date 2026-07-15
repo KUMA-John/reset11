@@ -843,7 +843,7 @@ else {
 Write-Step "Install AnyDesk"
 
 $AnyDeskInstalled = Install-WingetPackage `
-    -PackageId "AnyDeskSoftwareGmbH.AnyDesk" `
+    -PackageId "AnyDesk.AnyDesk" `
     -Source "winget"
 
 if (-not $AnyDeskInstalled) {
