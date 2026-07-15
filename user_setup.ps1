@@ -332,6 +332,274 @@ function Find-SnipasteExecutable {
 
     return $null
 }
+function Remove-StartupEntry {
+    param (
+        [Parameter(Mandatory)]
+        [string[]]$Names
+    )
+
+    $RunRegistryPaths = @(
+        "HKCU:\Software\Microsoft\Windows\CurrentVersion\Run"
+        "HKCU:\Software\Microsoft\Windows\CurrentVersion\RunOnce"
+        "HKLM:\Software\Microsoft\Windows\CurrentVersion\Run"
+        "HKLM:\Software\Microsoft\Windows\CurrentVersion\RunOnce"
+        "HKLM:\Software\WOW6432Node\Microsoft\Windows\CurrentVersion\Run"
+    )
+
+    foreach ($RegistryPath in $RunRegistryPaths) {
+        if (-not (Test-Path $RegistryPath)) {
+            continue
+        }
+
+        foreach ($Name in $Names) {
+            try {
+                $Property = Get-ItemProperty `
+                    -Path $RegistryPath `
+                    -Name $Name `
+                    -ErrorAction SilentlyContinue
+
+                if ($null -ne $Property) {
+                    Remove-ItemProperty `
+                        -Path $RegistryPath `
+                        -Name $Name `
+                        -Force `
+                        -ErrorAction Stop
+
+                    Write-Success (
+                        "Removed startup registry entry '$Name' from $RegistryPath."
+                    )
+                }
+            }
+            catch {
+                Write-Warning (
+                    "Unable to remove startup registry entry " +
+                    "'${Name}' from ${RegistryPath}: " +
+                    $_.Exception.Message
+                )
+            }
+        }
+    }
+
+    $StartupFolders = @(
+        [Environment]::GetFolderPath("Startup")
+        [Environment]::GetFolderPath("CommonStartup")
+    )
+
+    foreach ($StartupFolder in $StartupFolders) {
+        if (
+            [string]::IsNullOrWhiteSpace($StartupFolder) -or
+            -not (Test-Path $StartupFolder)
+        ) {
+            continue
+        }
+
+        foreach ($Name in $Names) {
+            Get-ChildItem `
+                -Path $StartupFolder `
+                -File `
+                -ErrorAction SilentlyContinue |
+                Where-Object {
+                    $_.BaseName -like "*$Name*"
+                } |
+                ForEach-Object {
+                    try {
+                        Remove-Item `
+                            -Path $_.FullName `
+                            -Force `
+                            -ErrorAction Stop
+
+                        Write-Success (
+                            "Removed startup shortcut: " +
+                            $_.FullName
+                        )
+                    }
+                    catch {
+                        Write-Warning (
+                            "Unable to remove startup shortcut " +
+                            "$($_.FullName): " +
+                            $_.Exception.Message
+                        )
+                    }
+                }
+        }
+    }
+}
+
+function Disable-StartupApprovedEntry {
+    param (
+        [Parameter(Mandatory)]
+        [string[]]$Names
+    )
+
+    # Binary value 03 means disabled in Startup Apps.
+    $DisabledStartupValue = [byte[]](
+        0x03, 0x00, 0x00, 0x00,
+        0x00, 0x00, 0x00, 0x00,
+        0x00, 0x00, 0x00, 0x00
+    )
+
+    $StartupApprovedPaths = @(
+        "HKCU:\Software\Microsoft\Windows\CurrentVersion\Explorer\StartupApproved\Run"
+        "HKCU:\Software\Microsoft\Windows\CurrentVersion\Explorer\StartupApproved\StartupFolder"
+        "HKLM:\Software\Microsoft\Windows\CurrentVersion\Explorer\StartupApproved\Run"
+        "HKLM:\Software\Microsoft\Windows\CurrentVersion\Explorer\StartupApproved\StartupFolder"
+        "HKLM:\Software\WOW6432Node\Microsoft\Windows\CurrentVersion\Explorer\StartupApproved\Run"
+    )
+
+    foreach ($RegistryPath in $StartupApprovedPaths) {
+        try {
+            if (-not (Test-Path $RegistryPath)) {
+                New-Item `
+                    -Path $RegistryPath `
+                    -Force | Out-Null
+            }
+
+            foreach ($Name in $Names) {
+                New-ItemProperty `
+                    -Path $RegistryPath `
+                    -Name $Name `
+                    -PropertyType Binary `
+                    -Value $DisabledStartupValue `
+                    -Force `
+                    -ErrorAction Stop | Out-Null
+            }
+        }
+        catch {
+            Write-Warning (
+                "Unable to update StartupApproved at ${RegistryPath}: " +
+                $_.Exception.Message
+            )
+        }
+    }
+}
+
+function Find-ApplicationExecutable {
+    param (
+        [Parameter(Mandatory)]
+        [string[]]$CandidatePaths,
+
+        [string[]]$SearchRoots = @(),
+
+        [Parameter(Mandatory)]
+        [string]$FileName
+    )
+
+    foreach ($CandidatePath in $CandidatePaths) {
+        if (
+            -not [string]::IsNullOrWhiteSpace($CandidatePath) -and
+            (Test-Path $CandidatePath)
+        ) {
+            return $CandidatePath
+        }
+    }
+
+    foreach ($SearchRoot in $SearchRoots) {
+        if (
+            [string]::IsNullOrWhiteSpace($SearchRoot) -or
+            -not (Test-Path $SearchRoot)
+        ) {
+            continue
+        }
+
+        $FoundExecutable = Get-ChildItem `
+            -Path $SearchRoot `
+            -Filter $FileName `
+            -File `
+            -Recurse `
+            -ErrorAction SilentlyContinue |
+            Select-Object -First 1
+
+        if ($null -ne $FoundExecutable) {
+            return $FoundExecutable.FullName
+        }
+    }
+
+    return $null
+}
+
+function Enable-ApplicationStartup {
+    param (
+        [Parameter(Mandatory)]
+        [string]$ApplicationName,
+
+        [Parameter(Mandatory)]
+        [string]$ExecutablePath,
+
+        [string]$Arguments = ""
+    )
+
+    if (-not (Test-Path $ExecutablePath)) {
+        Write-Failure (
+            "$ApplicationName executable was not found: " +
+            $ExecutablePath
+        )
+
+        return
+    }
+
+    $StartupFolder = [Environment]::GetFolderPath("Startup")
+
+    $ShortcutPath = Join-Path `
+        -Path $StartupFolder `
+        -ChildPath "$ApplicationName.lnk"
+
+    New-WindowsShortcut `
+        -TargetPath $ExecutablePath `
+        -ShortcutPath $ShortcutPath `
+        -Arguments $Arguments `
+        -IconLocation "$ExecutablePath,0" | Out-Null
+}
+
+function Stop-ApplicationProcesses {
+    param (
+        [Parameter(Mandatory)]
+        [string[]]$ProcessNames
+    )
+
+    foreach ($ProcessName in $ProcessNames) {
+        Get-Process `
+            -Name $ProcessName `
+            -ErrorAction SilentlyContinue |
+            Stop-Process `
+                -Force `
+                -ErrorAction SilentlyContinue
+    }
+}
+
+function Find-DellCommandUpdateCli {
+    $CandidatePaths = @(
+        "$env:ProgramFiles\Dell\CommandUpdate\dcu-cli.exe"
+        "${env:ProgramFiles(x86)}\Dell\CommandUpdate\dcu-cli.exe"
+        "$env:ProgramFiles\Dell\CommandUpdate\DCU-CLI.exe"
+        "${env:ProgramFiles(x86)}\Dell\CommandUpdate\DCU-CLI.exe"
+    )
+
+    foreach ($CandidatePath in $CandidatePaths) {
+        if (
+            -not [string]::IsNullOrWhiteSpace($CandidatePath) -and
+            (Test-Path $CandidatePath)
+        ) {
+            return $CandidatePath
+        }
+    }
+
+    return $null
+}
+
+function Test-IsDellComputer {
+    try {
+        $ComputerSystem = Get-CimInstance `
+            -ClassName Win32_ComputerSystem `
+            -ErrorAction Stop
+
+        return (
+            $ComputerSystem.Manufacturer -match "Dell"
+        )
+    }
+    catch {
+        return $false
+    }
+}
 
 # ============================================================
 # Verify administrator privileges
@@ -473,6 +741,7 @@ $ChocolateyPackages = @(
     "vcredist2015"
     "dotnetfx"
     "dotnet-8.0-runtime"
+    "dotnet-8.0-desktopruntime"
     "firefox"
     "picpick.portable"
     "7zip.install"
@@ -482,6 +751,7 @@ $ChocolateyPackages = @(
     "anydesk"
     "element-desktop"
     "googlechrome"
+    "nircmd"
 )
 
 foreach ($Package in $ChocolateyPackages) {
@@ -692,29 +962,116 @@ else {
 }
 
 # ============================================================
-# Step 11: Add Snipaste to the current user's startup folder
+# Disable AnyDesk, Microsoft Teams, and OneDrive startup
 # ============================================================
 
-Write-Step "Step 11: Configure Snipaste Startup"
+Write-Step "Disable Unwanted Startup Applications"
+
+# Stop currently running processes first.
+Stop-ApplicationProcesses -ProcessNames @(
+    "AnyDesk"
+    "ms-teams"
+    "Teams"
+    "OneDrive"
+)
+
+# Remove common registry and Startup folder entries.
+Remove-StartupEntry -Names @(
+    "AnyDesk"
+    "AnyDesk.exe"
+    "Teams"
+    "Microsoft Teams"
+    "MSTeams"
+    "com.squirrel.Teams.Teams"
+    "OneDrive"
+    "Microsoft OneDrive"
+)
+
+# Mark common entries as disabled in Windows Startup Apps.
+Disable-StartupApprovedEntry -Names @(
+    "AnyDesk"
+    "AnyDesk.exe"
+    "Teams"
+    "Microsoft Teams"
+    "MSTeams"
+    "com.squirrel.Teams.Teams"
+    "OneDrive"
+    "Microsoft OneDrive"
+)
+
+$AnyDeskService = Get-Service `
+    -Name "AnyDesk" `
+    -ErrorAction SilentlyContinue
+
+if ($null -ne $AnyDeskService) {
+    Stop-Service `
+        -Name "AnyDesk" `
+        -Force `
+        -ErrorAction SilentlyContinue
+
+    Set-Service `
+        -Name "AnyDesk" `
+        -StartupType Manual `
+        -ErrorAction SilentlyContinue
+}
+
+# Remove OneDrive from the current user's Run registry explicitly.
+$CurrentUserRunPath = `
+    "HKCU:\Software\Microsoft\Windows\CurrentVersion\Run"
+
+if (Test-Path $CurrentUserRunPath) {
+    Remove-ItemProperty `
+        -Path $CurrentUserRunPath `
+        -Name "OneDrive" `
+        -Force `
+        -ErrorAction SilentlyContinue
+}
+
+Write-Success (
+    "AnyDesk, Microsoft Teams, and OneDrive startup entries " +
+    "were disabled where found."
+)
+
+
+# ============================================================
+# Step 11: Configure Slack and Snipaste startup
+# ============================================================
+
+Write-Step "Configure Slack and Snipaste Startup"
+
+$SlackPath = Find-ApplicationExecutable `
+    -FileName "slack.exe" `
+    -CandidatePaths @(
+        "$env:LOCALAPPDATA\slack\slack.exe"
+        "$env:LOCALAPPDATA\Programs\slack\slack.exe"
+        "$env:ProgramFiles\Slack\slack.exe"
+        "${env:ProgramFiles(x86)}\Slack\slack.exe"
+    ) `
+    -SearchRoots @(
+        "$env:LOCALAPPDATA"
+        "$env:ProgramFiles"
+        "${env:ProgramFiles(x86)}"
+        "$env:ChocolateyInstall\lib"
+    )
+
+if ($null -ne $SlackPath) {
+    Enable-ApplicationStartup `
+        -ApplicationName "Slack" `
+        -ExecutablePath $SlackPath
+}
+else {
+    Write-Failure "Slack executable could not be found."
+}
 
 $SnipastePath = Find-SnipasteExecutable
 
-if ($null -eq $SnipastePath) {
-    Write-Failure "Snipaste.exe could not be found."
+if ($null -ne $SnipastePath) {
+    Enable-ApplicationStartup `
+        -ApplicationName "Snipaste" `
+        -ExecutablePath $SnipastePath
 }
 else {
-    $CurrentUserStartup = [Environment]::GetFolderPath(
-        "Startup"
-    )
-
-    $SnipasteShortcut = Join-Path `
-        -Path $CurrentUserStartup `
-        -ChildPath "Snipaste.lnk"
-
-    New-WindowsShortcut `
-        -TargetPath $SnipastePath `
-        -ShortcutPath $SnipasteShortcut `
-        -IconLocation "$SnipastePath,0" | Out-Null
+    Write-Failure "Snipaste executable could not be found."
 }
 
 # ============================================================
@@ -773,6 +1130,262 @@ catch {
 }
 
 # ============================================================
+# Configure Windows 11 taskbar pins
+# ============================================================
+
+Write-Step "Configure Windows 11 Taskbar"
+
+$CommonPrograms = [Environment]::GetFolderPath(
+    "CommonPrograms"
+)
+
+$CurrentUserPrograms = [Environment]::GetFolderPath(
+    "Programs"
+)
+
+$TaskbarShortcutDirectory = Join-Path `
+    -Path $CommonPrograms `
+    -ChildPath "Kuma Taskbar"
+
+if (-not (Test-Path $TaskbarShortcutDirectory)) {
+    New-Item `
+        -Path $TaskbarShortcutDirectory `
+        -ItemType Directory `
+        -Force | Out-Null
+}
+
+$ChromePath = Find-ApplicationExecutable `
+    -FileName "chrome.exe" `
+    -CandidatePaths @(
+        "$env:ProgramFiles\Google\Chrome\Application\chrome.exe"
+        "${env:ProgramFiles(x86)}\Google\Chrome\Application\chrome.exe"
+        "$env:LOCALAPPDATA\Google\Chrome\Application\chrome.exe"
+    ) `
+    -SearchRoots @()
+
+$FirefoxPath = Find-ApplicationExecutable `
+    -FileName "firefox.exe" `
+    -CandidatePaths @(
+        "$env:ProgramFiles\Mozilla Firefox\firefox.exe"
+        "${env:ProgramFiles(x86)}\Mozilla Firefox\firefox.exe"
+    ) `
+    -SearchRoots @()
+
+$TelegramPath = Find-ApplicationExecutable `
+    -FileName "Telegram.exe" `
+    -CandidatePaths @(
+        "$env:APPDATA\Telegram Desktop\Telegram.exe"
+        "$env:LOCALAPPDATA\Programs\Telegram Desktop\Telegram.exe"
+        "$env:ProgramFiles\Telegram Desktop\Telegram.exe"
+        "${env:ProgramFiles(x86)}\Telegram Desktop\Telegram.exe"
+    ) `
+    -SearchRoots @(
+        "$env:APPDATA"
+        "$env:LOCALAPPDATA"
+        "$env:ChocolateyInstall\lib"
+    )
+
+$ChromeShortcut = Join-Path `
+    -Path $TaskbarShortcutDirectory `
+    -ChildPath "Google Chrome.lnk"
+
+$FirefoxShortcut = Join-Path `
+    -Path $TaskbarShortcutDirectory `
+    -ChildPath "Mozilla Firefox.lnk"
+
+$TelegramShortcut = Join-Path `
+    -Path $TaskbarShortcutDirectory `
+    -ChildPath "Telegram.lnk"
+
+if ($null -ne $ChromePath) {
+    New-WindowsShortcut `
+        -TargetPath $ChromePath `
+        -ShortcutPath $ChromeShortcut `
+        -IconLocation "$ChromePath,0" | Out-Null
+}
+else {
+    Write-Failure "Google Chrome executable could not be found."
+}
+
+if ($null -ne $FirefoxPath) {
+    New-WindowsShortcut `
+        -TargetPath $FirefoxPath `
+        -ShortcutPath $FirefoxShortcut `
+        -IconLocation "$FirefoxPath,0" | Out-Null
+}
+else {
+    Write-Failure "Mozilla Firefox executable could not be found."
+}
+
+if ($null -ne $TelegramPath) {
+    New-WindowsShortcut `
+        -TargetPath $TelegramPath `
+        -ShortcutPath $TelegramShortcut `
+        -IconLocation "$TelegramPath,0" | Out-Null
+}
+else {
+    Write-Failure "Telegram executable could not be found."
+}
+
+$TaskbarLayoutDirectory = Join-Path `
+    -Path $env:ProgramData `
+    -ChildPath "KumaSetup"
+
+$TaskbarLayoutPath = Join-Path `
+    -Path $TaskbarLayoutDirectory `
+    -ChildPath "TaskbarLayoutModification.xml"
+
+if (-not (Test-Path $TaskbarLayoutDirectory)) {
+    New-Item `
+        -Path $TaskbarLayoutDirectory `
+        -ItemType Directory `
+        -Force | Out-Null
+}
+
+$TaskbarXml = @'
+<?xml version="1.0" encoding="utf-8"?>
+<LayoutModificationTemplate
+    xmlns="http://schemas.microsoft.com/Start/2014/LayoutModification"
+    xmlns:defaultlayout="http://schemas.microsoft.com/Start/2014/FullDefaultLayout"
+    xmlns:start="http://schemas.microsoft.com/Start/2014/StartLayout"
+    xmlns:taskbar="http://schemas.microsoft.com/Start/2014/TaskbarLayout"
+    Version="1">
+    <CustomTaskbarLayoutCollection PinListPlacement="Replace">
+        <defaultlayout:TaskbarLayout>
+            <taskbar:TaskbarPinList>
+                <taskbar:DesktopApp DesktopApplicationLinkPath="%ALLUSERSPROFILE%\Microsoft\Windows\Start Menu\Programs\Kuma Taskbar\Google Chrome.lnk" />
+                <taskbar:DesktopApp DesktopApplicationLinkPath="%ALLUSERSPROFILE%\Microsoft\Windows\Start Menu\Programs\Kuma Taskbar\Mozilla Firefox.lnk" />
+                <taskbar:UWA AppUserModelID="Microsoft.MicrosoftStickyNotes_8wekyb3d8bbwe!App" />
+                <taskbar:UWA AppUserModelID="Microsoft.WindowsCalculator_8wekyb3d8bbwe!App" />
+                <taskbar:DesktopApp DesktopApplicationLinkPath="%ALLUSERSPROFILE%\Microsoft\Windows\Start Menu\Programs\Kuma Taskbar\Telegram.lnk" />
+            </taskbar:TaskbarPinList>
+        </defaultlayout:TaskbarLayout>
+    </CustomTaskbarLayoutCollection>
+</LayoutModificationTemplate>
+'@
+
+# Write UTF-8 with BOM for compatibility with Windows PowerShell 5.1.
+$Utf8WithBom = New-Object System.Text.UTF8Encoding($true)
+
+[System.IO.File]::WriteAllText(
+    $TaskbarLayoutPath,
+    $TaskbarXml,
+    $Utf8WithBom
+)
+
+$TaskbarPolicyPath = `
+    "HKCU:\Software\Policies\Microsoft\Windows\Explorer"
+
+if (-not (Test-Path $TaskbarPolicyPath)) {
+    New-Item `
+        -Path $TaskbarPolicyPath `
+        -Force | Out-Null
+}
+
+New-ItemProperty `
+    -Path $TaskbarPolicyPath `
+    -Name "StartLayoutFile" `
+    -PropertyType String `
+    -Value $TaskbarLayoutPath `
+    -Force | Out-Null
+
+New-ItemProperty `
+    -Path $TaskbarPolicyPath `
+    -Name "LockedStartLayout" `
+    -PropertyType DWord `
+    -Value 1 `
+    -Force | Out-Null
+
+# Also copy the layout file to the current user's Shell folder.
+$UserShellDirectory = Join-Path `
+    -Path $env:LOCALAPPDATA `
+    -ChildPath "Microsoft\Windows\Shell"
+
+if (-not (Test-Path $UserShellDirectory)) {
+    New-Item `
+        -Path $UserShellDirectory `
+        -ItemType Directory `
+        -Force | Out-Null
+}
+
+Copy-Item `
+    -Path $TaskbarLayoutPath `
+    -Destination (
+        Join-Path `
+            -Path $UserShellDirectory `
+            -ChildPath "LayoutModification.xml"
+    ) `
+    -Force
+
+Write-Success "Taskbar layout XML was created."
+Write-Host "Taskbar layout: $TaskbarLayoutPath"
+
+try {
+    gpupdate.exe /target:user /force | Out-Null
+}
+catch {
+    Write-Warning "User Group Policy refresh failed."
+}
+
+# Restart Explorer so the taskbar policy can be reloaded.
+Get-Process `
+    -Name "explorer" `
+    -ErrorAction SilentlyContinue |
+    Stop-Process `
+        -Force `
+        -ErrorAction SilentlyContinue
+
+Start-Sleep -Seconds 3
+
+Start-Process "explorer.exe"
+
+Write-Warning (
+    "If the taskbar is not updated immediately, sign out and sign in again."
+)
+
+# ============================================================
+# Mute system audio
+# ============================================================
+
+Write-Step "Mute System Audio"
+
+Refresh-EnvironmentPath
+
+$NirCmdPath = Get-Command `
+    -Name "nircmd.exe" `
+    -ErrorAction SilentlyContinue
+
+if ($null -ne $NirCmdPath) {
+    & $NirCmdPath.Source mutesysvolume 1
+
+    if ($LASTEXITCODE -eq 0) {
+        Write-Success "System audio was muted."
+    }
+    else {
+        Write-Failure (
+            "NirCmd returned exit code $LASTEXITCODE."
+        )
+    }
+}
+else {
+    $PossibleNirCmd = Get-ChildItem `
+        -Path "$env:ChocolateyInstall\lib" `
+        -Filter "nircmd.exe" `
+        -File `
+        -Recurse `
+        -ErrorAction SilentlyContinue |
+        Select-Object -First 1
+
+    if ($null -ne $PossibleNirCmd) {
+        & $PossibleNirCmd.FullName mutesysvolume 1
+        Write-Success "System audio was muted."
+    }
+    else {
+        Write-Failure "nircmd.exe could not be found."
+    }
+}
+
+# ============================================================
 # Step 13: Open Surfshark browser extension pages
 # ============================================================
 
@@ -809,6 +1422,297 @@ catch {
 }
 
 # ============================================================
+# Update installed applications
+# ============================================================
+
+Write-Step "Update Installed Applications"
+
+# ------------------------------------------------------------
+# Update Chocolatey itself
+# ------------------------------------------------------------
+
+if (Test-CommandAvailable -CommandName "choco.exe") {
+    try {
+        Write-Host "Updating Chocolatey..."
+
+        choco upgrade chocolatey `
+            -y `
+            --no-progress
+
+        if ($LASTEXITCODE -in @(0, 1641, 3010)) {
+            Write-Success "Chocolatey update completed."
+        }
+        else {
+            Write-Warning (
+                "Chocolatey update returned exit code " +
+                "$LASTEXITCODE."
+            )
+        }
+    }
+    catch {
+        Write-Warning (
+            "Chocolatey update failed: " +
+            $_.Exception.Message
+        )
+    }
+
+    # --------------------------------------------------------
+    # Update all Chocolatey-managed applications
+    # --------------------------------------------------------
+
+    try {
+        Write-Host "Updating all Chocolatey packages..."
+
+        choco upgrade all `
+            -y `
+            --no-progress `
+            --ignore-checksums=false
+
+        if ($LASTEXITCODE -in @(0, 1641, 3010)) {
+            Write-Success (
+                "Chocolatey application updates completed."
+            )
+
+            if ($LASTEXITCODE -in @(1641, 3010)) {
+                $RestartRecommended = $true
+            }
+        }
+        else {
+            Write-Warning (
+                "Chocolatey package update returned exit code " +
+                "$LASTEXITCODE."
+            )
+        }
+    }
+    catch {
+        Write-Warning (
+            "Chocolatey package update failed: " +
+            $_.Exception.Message
+        )
+    }
+}
+else {
+    Write-Warning "Chocolatey is unavailable."
+}
+
+# ------------------------------------------------------------
+# Update all WinGet applications
+# ------------------------------------------------------------
+
+if (Test-CommandAvailable -CommandName "winget.exe") {
+    try {
+        Write-Host "Refreshing WinGet sources..."
+
+        winget source update `
+            --accept-source-agreements `
+            --disable-interactivity
+
+        Write-Host "Showing available WinGet updates..."
+
+        winget upgrade `
+            --accept-source-agreements `
+            --disable-interactivity
+
+        Write-Host "Installing all WinGet updates..."
+
+        winget upgrade `
+            --all `
+            --silent `
+            --accept-source-agreements `
+            --accept-package-agreements `
+            --disable-interactivity `
+            --include-unknown
+
+        if ($LASTEXITCODE -eq 0) {
+            Write-Success "WinGet application updates completed."
+        }
+        else {
+            Write-Warning (
+                "WinGet update returned exit code " +
+                "$LASTEXITCODE."
+            )
+        }
+    }
+    catch {
+        Write-Warning (
+            "WinGet application update failed: " +
+            $_.Exception.Message
+        )
+    }
+}
+else {
+    Write-Warning "WinGet is unavailable."
+}
+
+# ============================================================
+# Install and run Dell Command Update
+# ============================================================
+
+Write-Step "Install and Run Dell Command Update"
+
+if (-not (Test-IsDellComputer)) {
+    Write-Skip (
+        "This computer is not identified as a Dell system. " +
+        "Dell Command Update was skipped."
+    )
+}
+else {
+    Write-Success "Dell computer detected."
+
+    # Install or update Dell Command Update.
+    if (Test-CommandAvailable -CommandName "winget.exe") {
+        try {
+            winget install `
+                --id "Dell.CommandUpdate" `
+                --exact `
+                --source "winget" `
+                --scope machine `
+                --silent `
+                --accept-source-agreements `
+                --accept-package-agreements `
+                --disable-interactivity
+
+            if ($LASTEXITCODE -ne 0) {
+                winget upgrade `
+                    --id "Dell.CommandUpdate" `
+                    --exact `
+                    --source "winget" `
+                    --silent `
+                    --accept-source-agreements `
+                    --accept-package-agreements `
+                    --disable-interactivity
+            }
+
+            Write-Success (
+                "Dell Command Update installation or upgrade completed."
+            )
+        }
+        catch {
+            Write-Warning (
+                "Unable to install or upgrade Dell Command Update: " +
+                $_.Exception.Message
+            )
+        }
+    }
+
+    Refresh-EnvironmentPath
+    Start-Sleep -Seconds 3
+
+    $DellCommandUpdateCli = Find-DellCommandUpdateCli
+
+    if ($null -eq $DellCommandUpdateCli) {
+        Write-Failure "Dell Command Update CLI could not be found."
+    }
+    else {
+        Write-Host "Dell Command Update CLI: $DellCommandUpdateCli"
+
+        $DellLogDirectory = "C:\ProgramData\KumaSetup\DellUpdate"
+
+        if (-not (Test-Path $DellLogDirectory)) {
+            New-Item `
+                -Path $DellLogDirectory `
+                -ItemType Directory `
+                -Force | Out-Null
+        }
+
+        $DellScanLog = Join-Path `
+            -Path $DellLogDirectory `
+            -ChildPath "Dell-Scan.log"
+
+        $DellApplyLog = Join-Path `
+            -Path $DellLogDirectory `
+            -ChildPath "Dell-Apply.log"
+
+        # ----------------------------------------------------
+        # Configure DCU
+        # ----------------------------------------------------
+
+        try {
+            & $DellCommandUpdateCli `
+                /configure `
+                -autoSuspendBitLocker=enable `
+                -scheduleManual `
+                -userConsent=disable
+
+            Write-Success "Dell Command Update was configured."
+        }
+        catch {
+            Write-Warning (
+                "Dell Command Update configuration failed: " +
+                $_.Exception.Message
+            )
+        }
+
+        # ----------------------------------------------------
+        # Scan Dell updates
+        # ----------------------------------------------------
+
+        Write-Host "Scanning for Dell updates..."
+
+        & $DellCommandUpdateCli `
+            /scan `
+            "-outputLog=$DellScanLog"
+
+        $DellScanExitCode = $LASTEXITCODE
+
+        Write-Host (
+            "Dell update scan exit code: " +
+            $DellScanExitCode
+        )
+
+        # Common DCU results may indicate:
+        # 0 = command completed
+        # 500 = no updates found on some versions
+        # Other codes are written to the DCU log.
+        if ($DellScanExitCode -eq 0) {
+            Write-Success "Dell update scan completed."
+        }
+        else {
+            Write-Warning (
+                "Dell update scan returned exit code " +
+                "$DellScanExitCode. Check: $DellScanLog"
+            )
+        }
+
+        # ----------------------------------------------------
+        # Apply Dell updates
+        # ----------------------------------------------------
+
+        Write-Host (
+            "Applying Dell BIOS, firmware, driver, " +
+            "and application updates..."
+        )
+
+        & $DellCommandUpdateCli `
+            /applyUpdates `
+            -updateType=bios,firmware,driver,application,others `
+            -updateSeverity=security,critical,recommended,optional `
+            -autoSuspendBitLocker=enable `
+            -reboot=disable `
+            "-outputLog=$DellApplyLog"
+
+        $DellApplyExitCode = $LASTEXITCODE
+
+        Write-Host (
+            "Dell update apply exit code: " +
+            $DellApplyExitCode
+        )
+
+        if ($DellApplyExitCode -eq 0) {
+            Write-Success "Dell updates were applied successfully."
+        }
+        else {
+            Write-Warning (
+                "Dell update installation returned exit code " +
+                "$DellApplyExitCode. Check: $DellApplyLog"
+            )
+        }
+
+        $RestartRecommended = $true
+    }
+}
+
+# ============================================================
 # Step 14: Display results
 # ============================================================
 
@@ -833,74 +1737,3 @@ if ($RestartRecommended) {
 
 Write-Host ""
 Write-Host "Software setup has completed." -ForegroundColor Green
-
-# ============================================================
-# Step 15: Restart countdown
-# ============================================================
-
-Write-Step "Step 15: Restart Countdown"
-
-Write-Host "The computer will restart automatically in 10 seconds." `
-    -ForegroundColor Yellow
-
-Write-Host "Press Enter within 10 seconds to cancel the restart." `
-    -ForegroundColor Yellow
-
-Write-Host ""
-
-$RestartCancelled = $false
-$CountdownSeconds = 10
-
-try {
-    for (
-        $Remaining = $CountdownSeconds
-        $Remaining -gt 0
-        $Remaining--
-    ) {
-        Write-Host `
-            "`rRestarting in $Remaining second(s). Press Enter to cancel.   " `
-            -NoNewline `
-            -ForegroundColor Yellow
-
-        $SecondEndTime = (Get-Date).AddSeconds(1)
-
-        while ((Get-Date) -lt $SecondEndTime) {
-            if ([Console]::KeyAvailable) {
-                $PressedKey = [Console]::ReadKey($true)
-
-                if ($PressedKey.Key -eq [ConsoleKey]::Enter) {
-                    $RestartCancelled = $true
-                    break
-                }
-            }
-
-            Start-Sleep -Milliseconds 100
-        }
-
-        if ($RestartCancelled) {
-            break
-        }
-    }
-}
-catch {
-    Write-Warning (
-        "Interactive keyboard detection is not available. " +
-        "The computer will restart after the timeout."
-    )
-
-    Start-Sleep -Seconds $CountdownSeconds
-}
-
-Write-Host ""
-
-if ($RestartCancelled) {
-    Write-Host "Automatic restart was cancelled." `
-        -ForegroundColor Green
-}
-else {
-    Write-Host "The countdown completed. Restarting now..." `
-        -ForegroundColor Yellow
-
-    Start-Sleep -Seconds 1
-    Restart-Computer -Force
-}
