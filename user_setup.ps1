@@ -1628,11 +1628,14 @@ else {
         # ----------------------------------------------------
 
         try {
-            & $DellCommandUpdateCli `
-                /configure `
-                -autoSuspendBitLocker=enable `
-                -scheduleManual `
-                -userConsent=disable
+            $DellConfigureArguments = @(
+                "/configure"
+                "-autoSuspendBitLocker=enable"
+                "-scheduleManual"
+                "-userConsent=disable"
+            )
+            
+            & $DellCommandUpdateCli @DellConfigureArguments
 
             Write-Success "Dell Command Update was configured."
         }
@@ -1649,10 +1652,13 @@ else {
 
         Write-Host "Scanning for Dell updates..."
 
-        & $DellCommandUpdateCli `
-            /scan `
+        $DellScanArguments = @(
+            "/scan"
             "-outputLog=$DellScanLog"
-
+        )
+        
+        & $DellCommandUpdateCli @DellScanArguments
+        
         $DellScanExitCode = $LASTEXITCODE
 
         Write-Host (
@@ -1683,14 +1689,17 @@ else {
             "and application updates..."
         )
 
-        & $DellCommandUpdateCli `
-            /applyUpdates `
-            "-updateType=bios,firmware,driver,application,others" `
-            "-updateSeverity=security,critical,recommended,optional" `
-            -autoSuspendBitLocker=enable `
-            -reboot=disable `
+        $DellApplyArguments = @(
+            "/applyUpdates"
+            "-updateType=bios,firmware,driver,application,others"
+            "-updateSeverity=security,critical,recommended,optional"
+            "-autoSuspendBitLocker=enable"
+            "-reboot=disable"
             "-outputLog=$DellApplyLog"
-
+        )
+        
+        & $DellCommandUpdateCli @DellApplyArguments
+        
         $DellApplyExitCode = $LASTEXITCODE
 
         Write-Host (
