@@ -813,11 +813,23 @@ if (Test-CommandAvailable -CommandName "winget.exe") {
 
     try {
         winget source update `
-            --accept-source-agreements `
             --disable-interactivity
+    
+        if ($LASTEXITCODE -eq 0) {
+            Write-Success "WinGet sources were updated."
+        }
+        else {
+            Write-Warning (
+                "WinGet source update returned exit code " +
+                "$LASTEXITCODE."
+            )
+        }
     }
     catch {
-        Write-Warning "Unable to update WinGet sources."
+        Write-Warning (
+            "Unable to update WinGet sources: " +
+            $_.Exception.Message
+        )
     }
 }
 else {
@@ -1524,8 +1536,19 @@ if (Test-CommandAvailable -CommandName "winget.exe") {
         Write-Host "Refreshing WinGet sources..."
 
         winget source update `
-            --accept-source-agreements `
             --disable-interactivity
+        
+        $WingetSourceExitCode = $LASTEXITCODE
+        
+        if ($WingetSourceExitCode -eq 0) {
+            Write-Success "WinGet sources were refreshed."
+        }
+        else {
+            Write-Warning (
+                "WinGet source update returned exit code " +
+                "$WingetSourceExitCode."
+            )
+        }
 
         Write-Host "Showing available WinGet updates..."
 
