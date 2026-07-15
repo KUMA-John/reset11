@@ -778,6 +778,10 @@ foreach ($Package in $ChocolateyPackages) {
     Install-ChocolateyPackage -PackageName $Package
 }
 
+Install-ChocolateyPackage `
+    -PackageName "anydesk" `
+    -AdditionalArguments @("--ignore-checksums")
+
 Refresh-EnvironmentPath
 
 # ============================================================
