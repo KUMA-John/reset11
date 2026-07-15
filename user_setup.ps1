@@ -606,6 +606,115 @@ function Find-DellCommandUpdateCli {
     return $null
 }
 
+function Get-OutlineClientExecutable {
+    $CandidatePaths = @(
+        "$env:LOCALAPPDATA\Programs\Outline Client\Outline Client.exe"
+        "$env:LOCALAPPDATA\Programs\Outline\Outline.exe"
+        "$env:LOCALAPPDATA\Outline\Outline.exe"
+        "$env:LOCALAPPDATA\Programs\outline-client\Outline Client.exe"
+        "$env:LOCALAPPDATA\Programs\outline-client\Outline.exe"
+        "$env:ProgramFiles\Outline Client\Outline Client.exe"
+        "$env:ProgramFiles\Outline\Outline.exe"
+        "${env:ProgramFiles(x86)}\Outline Client\Outline Client.exe"
+        "${env:ProgramFiles(x86)}\Outline\Outline.exe"
+    )
+
+    foreach ($CandidatePath in $CandidatePaths) {
+        if (
+            -not [string]::IsNullOrWhiteSpace($CandidatePath) -and
+            (Test-Path -LiteralPath $CandidatePath -PathType Leaf)
+        ) {
+            return $CandidatePath
+        }
+    }
+
+    $SearchRoots = @(
+        "$env:LOCALAPPDATA\Programs"
+        "$env:LOCALAPPDATA"
+        "$env:ProgramFiles"
+        "${env:ProgramFiles(x86)}"
+    )
+
+    $ExecutableNames = @(
+        "Outline Client.exe"
+        "Outline.exe"
+    )
+
+    foreach ($SearchRoot in $SearchRoots) {
+        if (
+            [string]::IsNullOrWhiteSpace($SearchRoot) -or
+            -not (
+                Test-Path `
+                    -LiteralPath $SearchRoot `
+                    -PathType Container
+            )
+        ) {
+            continue
+        }
+
+        foreach ($ExecutableName in $ExecutableNames) {
+            $FoundExecutable = Get-ChildItem `
+                -LiteralPath $SearchRoot `
+                -Filter $ExecutableName `
+                -File `
+                -Recurse `
+                -ErrorAction SilentlyContinue |
+                Where-Object {
+                    $_.FullName -match "Outline"
+                } |
+                Select-Object -First 1
+
+            if ($null -ne $FoundExecutable) {
+                return $FoundExecutable.FullName
+            }
+        }
+    }
+
+    return $null
+}
+
+function Test-OutlineClientInstalled {
+    $OutlineExecutable = Get-OutlineClientExecutable
+
+    if ($null -ne $OutlineExecutable) {
+        return $true
+    }
+
+    $UninstallRegistryPaths = @(
+        "HKCU:\Software\Microsoft\Windows\CurrentVersion\Uninstall\*"
+        "HKLM:\Software\Microsoft\Windows\CurrentVersion\Uninstall\*"
+        "HKLM:\Software\WOW6432Node\Microsoft\Windows\CurrentVersion\Uninstall\*"
+    )
+
+    foreach ($RegistryPath in $UninstallRegistryPaths) {
+        try {
+            $InstalledApplication = Get-ItemProperty `
+                -Path $RegistryPath `
+                -ErrorAction SilentlyContinue |
+                Where-Object {
+                    (
+                        -not [string]::IsNullOrWhiteSpace(
+                            $_.DisplayName
+                        )
+                    ) -and (
+                        $_.DisplayName -match "^Outline(\s+Client)?$" -or
+                        $_.DisplayName -like "Outline Client*"
+                    )
+                } |
+                Select-Object -First 1
+
+            if ($null -ne $InstalledApplication) {
+                return $true
+            }
+        }
+        catch {
+            # Continue checking the other registry paths.
+        }
+    }
+
+    return $false
+}
+
 function Test-IsDellComputer {
     try {
         $ComputerSystem = Get-CimInstance `
