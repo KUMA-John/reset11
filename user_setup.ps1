@@ -1685,8 +1685,8 @@ else {
 
         & $DellCommandUpdateCli `
             /applyUpdates `
-            -updateType=bios,firmware,driver,application,others `
-            -updateSeverity=security,critical,recommended,optional `
+            "-updateType=bios,firmware,driver,application,others" `
+            "-updateSeverity=security,critical,recommended,optional" `
             -autoSuspendBitLocker=enable `
             -reboot=disable `
             "-outputLog=$DellApplyLog"
