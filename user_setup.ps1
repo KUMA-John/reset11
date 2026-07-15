@@ -903,87 +903,141 @@ Install-ChocolateyPackage `
 Write-Step "Step 9: Install Outline Client"
 
 $SoftwareDirectory = "C:\Software"
+
 $OutlineInstaller = Join-Path `
     -Path $SoftwareDirectory `
     -ChildPath "Outline-Client.exe"
 
-try {
-    if (-not (Test-Path $SoftwareDirectory)) {
-        New-Item `
-            -Path $SoftwareDirectory `
-            -ItemType Directory `
-            -Force | Out-Null
-    }
+$OutlineExecutable = Get-OutlineClientExecutable
 
-    Write-Host "Downloading Outline Client..."
-
-    Invoke-WebRequest `
-        -Uri "https://s3.amazonaws.com/outline-releases/client/windows/stable/Outline-Client.exe" `
-        -OutFile $OutlineInstaller `
-        -UseBasicParsing `
-        -ErrorAction Stop
-
-    Unblock-File `
-        -Path $OutlineInstaller `
-        -ErrorAction SilentlyContinue
-
-    Write-Success "Outline Client was downloaded."
-
-    $OutlineInstalled = $false
-
-    $SilentArguments = @(
-        "--silent"
-        "/S"
-        "/quiet"
+if (
+    (Test-OutlineClientInstalled) -and
+    $null -ne $OutlineExecutable
+) {
+    Write-Skip "Outline Client is already installed."
+    Write-Host "Outline executable: $OutlineExecutable"
+}
+elseif (Test-OutlineClientInstalled) {
+    Write-Skip (
+        "Outline Client appears to be installed, " +
+        "but its executable path could not be determined."
     )
-
-    foreach ($SilentArgument in $SilentArguments) {
-        if ($OutlineInstalled) {
-            break
+}
+else {
+    try {
+        if (-not (
+            Test-Path `
+                -LiteralPath $SoftwareDirectory `
+                -PathType Container
+        )) {
+            New-Item `
+                -Path $SoftwareDirectory `
+                -ItemType Directory `
+                -Force `
+                -ErrorAction Stop | Out-Null
         }
 
-        try {
-            Write-Host (
-                "Trying Outline installation argument: " +
-                $SilentArgument
-            )
+        Write-Host "Downloading Outline Client..."
 
-            $OutlineProcess = Start-Process `
-                -FilePath $OutlineInstaller `
-                -ArgumentList $SilentArgument `
-                -Wait `
-                -PassThru `
-                -ErrorAction Stop
+        Invoke-WebRequest `
+            -Uri (
+                "https://s3.amazonaws.com/" +
+                "outline-releases/client/windows/stable/" +
+                "Outline-Client.exe"
+            ) `
+            -OutFile $OutlineInstaller `
+            -UseBasicParsing `
+            -ErrorAction Stop
 
-            if ($OutlineProcess.ExitCode -eq 0) {
-                $OutlineInstalled = $true
-                Write-Success "Outline Client installation completed."
-            }
-        }
-        catch {
-            Write-Warning (
-                "Outline did not accept argument " +
-                "${SilentArgument}: $($_.Exception.Message)"
-            )
-        }
-    }
+        Unblock-File `
+            -LiteralPath $OutlineInstaller `
+            -ErrorAction SilentlyContinue
 
-    if (-not $OutlineInstalled) {
-        Write-Warning (
-            "Silent installation could not be confirmed. " +
-            "Opening the Outline installer."
+        Write-Success "Outline Client was downloaded."
+
+        $OutlineInstalled = $false
+
+        $SilentArguments = @(
+            "--silent"
+            "/S"
+            "/quiet"
         )
 
-        Start-Process `
-            -FilePath $OutlineInstaller `
-            -ErrorAction Stop
+        foreach ($SilentArgument in $SilentArguments) {
+            if ($OutlineInstalled) {
+                break
+            }
+
+            try {
+                Write-Host (
+                    "Trying Outline installation argument: " +
+                    $SilentArgument
+                )
+
+                $OutlineProcess = Start-Process `
+                    -FilePath $OutlineInstaller `
+                    -ArgumentList $SilentArgument `
+                    -Wait `
+                    -PassThru `
+                    -ErrorAction Stop
+
+                Write-Host (
+                    "Outline installer exit code: " +
+                    $OutlineProcess.ExitCode
+                )
+
+                Start-Sleep -Seconds 3
+
+                if (Test-OutlineClientInstalled) {
+                    $OutlineInstalled = $true
+
+                    $OutlineExecutable = `
+                        Get-OutlineClientExecutable
+
+                    Write-Success (
+                        "Outline Client installation completed."
+                    )
+
+                    if ($null -ne $OutlineExecutable) {
+                        Write-Host (
+                            "Outline executable: " +
+                            $OutlineExecutable
+                        )
+                    }
+                }
+                elseif ($OutlineProcess.ExitCode -eq 0) {
+                    Write-Warning (
+                        "The Outline installer returned exit code 0, " +
+                        "but the installation could not be verified."
+                    )
+                }
+            }
+            catch {
+                Write-Warning (
+                    "Outline did not accept argument " +
+                    "${SilentArgument}: " +
+                    $_.Exception.Message
+                )
+            }
+        }
+
+        if (-not $OutlineInstalled) {
+            Write-Warning (
+                "Silent installation could not be confirmed. " +
+                "Opening the Outline installer."
+            )
+
+            Start-Process `
+                -FilePath $OutlineInstaller `
+                -ErrorAction Stop
+        }
     }
-}
-catch {
-    Write-Failure (
-        "Outline Client installation failed: " +
-        $_.Exception.Message
-    )
+    catch {
+        Write-Failure (
+            "Outline Client installation failed: " +
+            $_.Exception.Message
+        )
+    }
 }
 
 # ============================================================
