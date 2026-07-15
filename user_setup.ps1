@@ -1619,33 +1619,69 @@ if (-not (Test-IsDellComputer)) {
 else {
     Write-Success "Dell computer detected."
 
-    # Install or update Dell Command Update.
+    # --------------------------------------------------------
+    # Install or upgrade Dell Command Update
+    # --------------------------------------------------------
+
     if (Test-CommandAvailable -CommandName "winget.exe") {
         try {
-            winget install `
-                --id "Dell.CommandUpdate" `
-                --exact `
-                --source "winget" `
-                --scope machine `
-                --silent `
-                --accept-source-agreements `
-                --accept-package-agreements `
-                --disable-interactivity
-
-            if ($LASTEXITCODE -ne 0) {
-                winget upgrade `
-                    --id "Dell.CommandUpdate" `
-                    --exact `
-                    --source "winget" `
-                    --silent `
-                    --accept-source-agreements `
-                    --accept-package-agreements `
-                    --disable-interactivity
-            }
-
-            Write-Success (
-                "Dell Command Update installation or upgrade completed."
+            $DellInstallArguments = @(
+                "install"
+                "--id"
+                "Dell.CommandUpdate"
+                "--exact"
+                "--source"
+                "winget"
+                "--scope"
+                "machine"
+                "--silent"
+                "--accept-source-agreements"
+                "--accept-package-agreements"
+                "--disable-interactivity"
             )
+
+            & winget @DellInstallArguments
+
+            $DellInstallExitCode = $LASTEXITCODE
+
+            if ($DellInstallExitCode -eq 0) {
+                Write-Success "Dell Command Update was installed."
+            }
+            else {
+                Write-Host (
+                    "Dell Command Update install returned exit code " +
+                    "$DellInstallExitCode. Trying upgrade..."
+                )
+
+                $DellUpgradeArguments = @(
+                    "upgrade"
+                    "--id"
+                    "Dell.CommandUpdate"
+                    "--exact"
+                    "--source"
+                    "winget"
+                    "--silent"
+                    "--accept-source-agreements"
+                    "--accept-package-agreements"
+                    "--disable-interactivity"
+                )
+
+                & winget @DellUpgradeArguments
+
+                $DellUpgradeExitCode = $LASTEXITCODE
+
+                if ($DellUpgradeExitCode -eq 0) {
+                    Write-Success (
+                        "Dell Command Update upgrade completed."
+                    )
+                }
+                else {
+                    Write-Warning (
+                        "Dell Command Update upgrade returned exit code " +
+                        "$DellUpgradeExitCode."
+                    )
+                }
+            }
         }
         catch {
             Write-Warning (
@@ -1666,13 +1702,32 @@ else {
     else {
         Write-Host "Dell Command Update CLI: $DellCommandUpdateCli"
 
-        $DellLogDirectory = "C:\ProgramData\KumaSetup\DellUpdate"
+        # Do not use ProgramData for DCU outputLog.
+        $DellLogDirectory = "C:\KumaSetup\DellUpdate"
 
-        if (-not (Test-Path $DellLogDirectory)) {
-            New-Item `
-                -Path $DellLogDirectory `
-                -ItemType Directory `
-                -Force | Out-Null
+        try {
+            if (-not (
+                Test-Path `
+                    -LiteralPath $DellLogDirectory `
+                    -PathType Container
+            )) {
+                New-Item `
+                    -Path $DellLogDirectory `
+                    -ItemType Directory `
+                    -Force `
+                    -ErrorAction Stop | Out-Null
+            }
+
+            Write-Success (
+                "Dell update log directory is ready: " +
+                $DellLogDirectory
+            )
+        }
+        catch {
+            Write-Failure (
+                "Unable to create Dell update log directory: " +
+                $_.Exception.Message
+            )
         }
 
         $DellScanLog = Join-Path `
@@ -1692,12 +1747,21 @@ else {
                 "/configure"
                 "-autoSuspendBitLocker=enable"
                 "-scheduleManual"
-                "-userConsent=disable"
             )
-            
+
             & $DellCommandUpdateCli @DellConfigureArguments
 
-            Write-Success "Dell Command Update was configured."
+            $DellConfigureExitCode = $LASTEXITCODE
+
+            if ($DellConfigureExitCode -eq 0) {
+                Write-Success "Dell Command Update was configured."
+            }
+            else {
+                Write-Warning (
+                    "Dell Command Update configuration returned exit code " +
+                    "$DellConfigureExitCode."
+                )
+            }
         }
         catch {
             Write-Warning (
@@ -1712,32 +1776,45 @@ else {
 
         Write-Host "Scanning for Dell updates..."
 
-        $DellScanArguments = @(
-            "/scan"
-            "-outputLog=$DellScanLog"
-        )
-        
-        & $DellCommandUpdateCli @DellScanArguments
-        
-        $DellScanExitCode = $LASTEXITCODE
+        try {
+            if (Test-Path -LiteralPath $DellScanLog) {
+                Remove-Item `
+                    -LiteralPath $DellScanLog `
+                    -Force `
+                    -ErrorAction SilentlyContinue
+            }
 
-        Write-Host (
-            "Dell update scan exit code: " +
-            $DellScanExitCode
-        )
-
-        # Common DCU results may indicate:
-        # 0 = command completed
-        # 500 = no updates found on some versions
-        # Other codes are written to the DCU log.
-        if ($DellScanExitCode -eq 0) {
-            Write-Success "Dell update scan completed."
-        }
-        else {
-            Write-Warning (
-                "Dell update scan returned exit code " +
-                "$DellScanExitCode. Check: $DellScanLog"
+            $DellScanArguments = @(
+                "/scan"
+                "-outputLog=$DellScanLog"
             )
+
+            & $DellCommandUpdateCli @DellScanArguments
+
+            $DellScanExitCode = $LASTEXITCODE
+
+            Write-Host (
+                "Dell update scan exit code: " +
+                $DellScanExitCode
+            )
+
+            if ($DellScanExitCode -eq 0) {
+                Write-Success "Dell update scan completed."
+            }
+            else {
+                Write-Warning (
+                    "Dell update scan returned exit code " +
+                    "$DellScanExitCode. Check: $DellScanLog"
+                )
+            }
+        }
+        catch {
+            Write-Warning (
+                "Dell update scan failed: " +
+                $_.Exception.Message
+            )
+
+            $DellScanExitCode = -1
         }
 
         # ----------------------------------------------------
@@ -1749,35 +1826,56 @@ else {
             "and application updates..."
         )
 
-        $DellApplyArguments = @(
-            "/applyUpdates"
-            "-updateType=bios,firmware,driver,application,others"
-            "-updateSeverity=security,critical,recommended,optional"
-            "-autoSuspendBitLocker=enable"
-            "-reboot=disable"
-            "-outputLog=$DellApplyLog"
-        )
-        
-        & $DellCommandUpdateCli @DellApplyArguments
-        
-        $DellApplyExitCode = $LASTEXITCODE
+        try {
+            if (Test-Path -LiteralPath $DellApplyLog) {
+                Remove-Item `
+                    -LiteralPath $DellApplyLog `
+                    -Force `
+                    -ErrorAction SilentlyContinue
+            }
 
-        Write-Host (
-            "Dell update apply exit code: " +
-            $DellApplyExitCode
-        )
+            $DellApplyArguments = @(
+                "/applyUpdates"
+                "-updateType=bios,firmware,driver,application,others"
+                "-updateSeverity=security,critical,recommended,optional"
+                "-autoSuspendBitLocker=enable"
+                "-reboot=disable"
+                "-outputLog=$DellApplyLog"
+            )
 
-        if ($DellApplyExitCode -eq 0) {
-            Write-Success "Dell updates were applied successfully."
+            & $DellCommandUpdateCli @DellApplyArguments
+
+            $DellApplyExitCode = $LASTEXITCODE
+
+            Write-Host (
+                "Dell update apply exit code: " +
+                $DellApplyExitCode
+            )
+
+            if ($DellApplyExitCode -eq 0) {
+                Write-Success (
+                    "Dell updates were applied successfully."
+                )
+
+                $RestartRecommended = $true
+            }
+            else {
+                Write-Warning (
+                    "Dell update installation returned exit code " +
+                    "$DellApplyExitCode. Check: $DellApplyLog"
+                )
+            }
         }
-        else {
+        catch {
             Write-Warning (
-                "Dell update installation returned exit code " +
-                "$DellApplyExitCode. Check: $DellApplyLog"
+                "Dell update installation failed: " +
+                $_.Exception.Message
             )
         }
 
-        $RestartRecommended = $true
+        # Clear the native process exit code so a noncritical DCU
+        # result does not become the exit code of the whole script.
+        $global:LASTEXITCODE = 0
     }
 }
 
@@ -1806,3 +1904,8 @@ if ($RestartRecommended) {
 
 Write-Host ""
 Write-Host "Software setup has completed." -ForegroundColor Green
+
+# Return success to the parent launcher.
+$global:LASTEXITCODE = 0
+
+exit 0
