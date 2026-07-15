@@ -303,6 +303,7 @@ function New-WindowsShortcut {
 
 function Find-SnipasteExecutable {
     $CandidatePaths = @(
+        "C:\tools\snipaste\snipaste.exe"
         "$env:ChocolateyInstall\bin\Snipaste.exe"
         "$env:ProgramFiles\Snipaste\Snipaste.exe"
         "${env:ProgramFiles(x86)}\Snipaste\Snipaste.exe"
@@ -313,25 +314,44 @@ function Find-SnipasteExecutable {
     foreach ($CandidatePath in $CandidatePaths) {
         if (
             -not [string]::IsNullOrWhiteSpace($CandidatePath) -and
-            (Test-Path $CandidatePath)
+            (Test-Path -LiteralPath $CandidatePath -PathType Leaf)
         ) {
             return $CandidatePath
         }
     }
 
-    $ChocolateySnipaste = Get-ChildItem `
-        -Path "$env:ChocolateyInstall\lib" `
-        -Filter "Snipaste.exe" `
-        -Recurse `
-        -ErrorAction SilentlyContinue |
-        Select-Object -First 1
+    $SearchRoots = @(
+        "C:\tools"
+        "$env:ChocolateyInstall\lib"
+        "$env:LOCALAPPDATA"
+        "$env:ProgramFiles"
+        "${env:ProgramFiles(x86)}"
+    )
 
-    if ($null -ne $ChocolateySnipaste) {
-        return $ChocolateySnipaste.FullName
+    foreach ($SearchRoot in $SearchRoots) {
+        if (
+            [string]::IsNullOrWhiteSpace($SearchRoot) -or
+            -not (Test-Path -LiteralPath $SearchRoot -PathType Container)
+        ) {
+            continue
+        }
+
+        $SnipasteExecutable = Get-ChildItem `
+            -LiteralPath $SearchRoot `
+            -Filter "Snipaste.exe" `
+            -File `
+            -Recurse `
+            -ErrorAction SilentlyContinue |
+            Select-Object -First 1
+
+        if ($null -ne $SnipasteExecutable) {
+            return $SnipasteExecutable.FullName
+        }
     }
 
     return $null
 }
+
 function Remove-StartupEntry {
     param (
         [Parameter(Mandatory)]
