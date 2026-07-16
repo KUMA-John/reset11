@@ -867,18 +867,19 @@ catch {
 Write-Step "Step 4: Install Applications with Chocolatey"
 
 $ChocolateyPackages = @(
+    "googlechrome"
+    "firefox"
     "vcredist2015"
+    
     "dotnetfx"
     "dotnet-8.0-runtime"
     "dotnet-8.0-desktopruntime"
-    "firefox"
     "picpick.portable"
     "7zip.install"
     "slack"
     "telegram"
     "snipaste"
     "element-desktop"
-    "googlechrome"
     "nircmd"
 )
 
@@ -887,6 +888,55 @@ foreach ($Package in $ChocolateyPackages) {
 }
 
 Refresh-EnvironmentPath
+
+$ChromePath = Find-ApplicationExecutable `
+    -FileName "chrome.exe" `
+    -CandidatePaths @(
+        "$env:ProgramFiles\Google\Chrome\Application\chrome.exe"
+        "${env:ProgramFiles(x86)}\Google\Chrome\Application\chrome.exe"
+        "$env:LOCALAPPDATA\Google\Chrome\Application\chrome.exe"
+    )
+
+$FirefoxPath = Find-ApplicationExecutable `
+    -FileName "firefox.exe" `
+    -CandidatePaths @(
+        "$env:ProgramFiles\Mozilla Firefox\firefox.exe"
+        "${env:ProgramFiles(x86)}\Mozilla Firefox\firefox.exe"
+    )
+
+# ============================================================
+# Open Surfshark browser extension pages
+# ============================================================
+
+Write-Step "Open Surfshark Browser Extensions"
+
+$ChromeExtensionUrl =
+    "https://chrome.google.com/webstore/detail/surfshark-vpn-extension/ailoabdmgclmfmhdagmlohpjlbpffblp?hl=en"
+
+$FirefoxExtensionUrl =
+    "https://addons.mozilla.org/zh-TW/firefox/addon/surfshark-vpn-proxy/"
+
+if ($null -ne $ChromePath) {
+    Start-Process `
+        -FilePath $ChromePath `
+        -ArgumentList $ChromeExtensionUrl
+
+    Write-Success "Opened Surfshark extension in Google Chrome."
+}
+else {
+    Write-Warning "Google Chrome executable could not be found."
+}
+
+if ($null -ne $FirefoxPath) {
+    Start-Process `
+        -FilePath $FirefoxPath `
+        -ArgumentList $FirefoxExtensionUrl
+
+    Write-Success "Opened Surfshark extension in Mozilla Firefox."
+}
+else {
+    Write-Warning "Mozilla Firefox executable could not be found."
+}
 
 # ============================================================
 # Step 5: Verify or initialize WinGet
@@ -1595,42 +1645,6 @@ else {
     else {
         Write-Failure "nircmd.exe could not be found."
     }
-}
-
-# ============================================================
-# Step 13: Open Surfshark browser extension pages
-# ============================================================
-
-Write-Step "Step 13: Configure Surfshark Browser Extensions"
-
-$SurfsharkChromeUrl = `
-    "https://chromewebstore.google.com/detail/surfshark-vpn-extension/ailoabdmgclmfmhdagmlohpjlbpffblp"
-
-$SurfsharkFirefoxUrl = `
-    "https://support.surfshark.com/hc/en-us/articles/360003090953-How-to-set-up-Surfshark-browser-extension-on-Firefox"
-
-Write-Host (
-    "Browser extension installation requires confirmation " +
-    "inside each browser."
-) -ForegroundColor Yellow
-
-Write-Host (
-    "The official Chrome and Firefox installation pages " +
-    "will be opened."
-) -ForegroundColor Yellow
-
-try {
-    Start-Process $SurfsharkChromeUrl
-    Start-Sleep -Seconds 2
-    Start-Process $SurfsharkFirefoxUrl
-
-    Write-Success "Surfshark extension pages were opened."
-}
-catch {
-    Write-Failure (
-        "Unable to open Surfshark extension pages: " +
-        $_.Exception.Message
-    )
 }
 
 # ============================================================
