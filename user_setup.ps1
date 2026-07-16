@@ -864,26 +864,17 @@ catch {
 # Step 4: Install Chocolatey applications
 # ============================================================
 
-Write-Step "Step 4: Install Applications with Chocolatey"
 
-$ChocolateyPackages = @(
+
+Write-Step "Step 4A: Install Google Chrome and Mozilla Firefox"
+
+$BrowserPackages = @(
     "googlechrome"
     "firefox"
-    "vcredist2015"
-    
-    "dotnetfx"
-    "dotnet-8.0-runtime"
-    "dotnet-8.0-desktopruntime"
-    "picpick.portable"
     "7zip.install"
-    "slack"
-    "telegram"
-    "snipaste"
-    "element-desktop"
-    "nircmd"
 )
 
-foreach ($Package in $ChocolateyPackages) {
+foreach ($Package in $BrowserPackages) {
     Install-ChocolateyPackage -PackageName $Package
 }
 
@@ -902,41 +893,101 @@ $FirefoxPath = Find-ApplicationExecutable `
     -CandidatePaths @(
         "$env:ProgramFiles\Mozilla Firefox\firefox.exe"
         "${env:ProgramFiles(x86)}\Mozilla Firefox\firefox.exe"
+        "$env:LOCALAPPDATA\Mozilla Firefox\firefox.exe"
     )
-
-# ============================================================
-# Open Surfshark browser extension pages
-# ============================================================
 
 Write-Step "Open Surfshark Browser Extensions"
 
-$ChromeExtensionUrl =
-    "https://chrome.google.com/webstore/detail/surfshark-vpn-extension/ailoabdmgclmfmhdagmlohpjlbpffblp?hl=en"
+$ChromeExtensionUrl = `
+    "https://chrome.google.com/webstore/detail/" +
+    "surfshark-vpn-extension/" +
+    "ailoabdmgclmfmhdagmlohpjlbpffblp?hl=en"
 
-$FirefoxExtensionUrl =
-    "https://addons.mozilla.org/zh-TW/firefox/addon/surfshark-vpn-proxy/"
+$FirefoxExtensionUrl = `
+    "https://addons.mozilla.org/zh-TW/firefox/addon/" +
+    "surfshark-vpn-proxy/"
 
-if ($null -ne $ChromePath) {
-    Start-Process `
-        -FilePath $ChromePath `
-        -ArgumentList $ChromeExtensionUrl
+if (
+    -not [string]::IsNullOrWhiteSpace($ChromePath) -and
+    (Test-Path -LiteralPath $ChromePath -PathType Leaf)
+) {
+    try {
+        Start-Process `
+            -FilePath $ChromePath `
+            -ArgumentList @($ChromeExtensionUrl) `
+            -ErrorAction Stop
 
-    Write-Success "Opened Surfshark extension in Google Chrome."
+        Write-Success (
+            "Opened the Surfshark extension page in Google Chrome."
+        )
+    }
+    catch {
+        Write-Warning (
+            "Unable to open the Surfshark extension page in Chrome: " +
+            $_.Exception.Message
+        )
+    }
 }
 else {
-    Write-Warning "Google Chrome executable could not be found."
+    Write-Warning (
+        "Google Chrome was not found, so its Surfshark page " +
+        "was not opened."
+    )
 }
 
-if ($null -ne $FirefoxPath) {
-    Start-Process `
-        -FilePath $FirefoxPath `
-        -ArgumentList $FirefoxExtensionUrl
+if (
+    -not [string]::IsNullOrWhiteSpace($FirefoxPath) -and
+    (Test-Path -LiteralPath $FirefoxPath -PathType Leaf)
+) {
+    try {
+        Start-Process `
+            -FilePath $FirefoxPath `
+            -ArgumentList @($FirefoxExtensionUrl) `
+            -ErrorAction Stop
 
-    Write-Success "Opened Surfshark extension in Mozilla Firefox."
+        Write-Success (
+            "Opened the Surfshark extension page in Mozilla Firefox."
+        )
+    }
+    catch {
+        Write-Warning (
+            "Unable to open the Surfshark extension page in Firefox: " +
+            $_.Exception.Message
+        )
+    }
 }
 else {
-    Write-Warning "Mozilla Firefox executable could not be found."
+    Write-Warning (
+        "Mozilla Firefox was not found, so its Surfshark page " +
+        "was not opened."
+    )
 }
+
+
+# ============================================================
+# Step 4B: Install remaining Chocolatey applications
+# ============================================================
+
+Write-Step "Step 4B: Install Remaining Applications with Chocolatey"
+
+$ChocolateyPackages = @(
+    "vcredist2015"
+    "dotnetfx"
+    "dotnet-8.0-runtime"
+    "dotnet-8.0-desktopruntime"
+    "picpick.portable"
+    "slack"
+    "telegram"
+    "snipaste"
+    "element-desktop"
+    "nircmd"
+)
+
+foreach ($Package in $ChocolateyPackages) {
+    Install-ChocolateyPackage -PackageName $Package
+}
+
+Refresh-EnvironmentPath
 
 # ============================================================
 # Step 5: Verify or initialize WinGet
