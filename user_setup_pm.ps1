@@ -1358,56 +1358,6 @@ function New-WindowsShortcut {
     }
 }
 
-function Find-SnipasteExecutable {
-    $CandidatePaths = @(
-        "C:\tools\snipaste\snipaste.exe"
-        "$env:ChocolateyInstall\bin\Snipaste.exe"
-        "$env:ProgramFiles\Snipaste\Snipaste.exe"
-        "${env:ProgramFiles(x86)}\Snipaste\Snipaste.exe"
-        "$env:LOCALAPPDATA\Snipaste\Snipaste.exe"
-        "$env:ChocolateyInstall\lib\snipaste\tools\Snipaste.exe"
-    )
-
-    foreach ($CandidatePath in $CandidatePaths) {
-        if (
-            -not [string]::IsNullOrWhiteSpace($CandidatePath) -and
-            (Test-Path -LiteralPath $CandidatePath -PathType Leaf)
-        ) {
-            return $CandidatePath
-        }
-    }
-
-    $SearchRoots = @(
-        "C:\tools"
-        "$env:ChocolateyInstall\lib"
-        "$env:LOCALAPPDATA"
-        "$env:ProgramFiles"
-        "${env:ProgramFiles(x86)}"
-    )
-
-    foreach ($SearchRoot in $SearchRoots) {
-        if (
-            [string]::IsNullOrWhiteSpace($SearchRoot) -or
-            -not (Test-Path -LiteralPath $SearchRoot -PathType Container)
-        ) {
-            continue
-        }
-
-        $SnipasteExecutable = Get-ChildItem `
-            -LiteralPath $SearchRoot `
-            -Filter "Snipaste.exe" `
-            -File `
-            -Recurse `
-            -ErrorAction SilentlyContinue |
-            Select-Object -First 1
-
-        if ($null -ne $SnipasteExecutable) {
-            return $SnipasteExecutable.FullName
-        }
-    }
-
-    return $null
-}
 
 function Remove-StartupEntry {
     param (
@@ -1550,49 +1500,6 @@ function Disable-StartupApprovedEntry {
     }
 }
 
-function Find-ApplicationExecutable {
-    param (
-        [Parameter(Mandatory)]
-        [string[]]$CandidatePaths,
-
-        [string[]]$SearchRoots = @(),
-
-        [Parameter(Mandatory)]
-        [string]$FileName
-    )
-
-    foreach ($CandidatePath in $CandidatePaths) {
-        if (
-            -not [string]::IsNullOrWhiteSpace($CandidatePath) -and
-            (Test-Path $CandidatePath)
-        ) {
-            return $CandidatePath
-        }
-    }
-
-    foreach ($SearchRoot in $SearchRoots) {
-        if (
-            [string]::IsNullOrWhiteSpace($SearchRoot) -or
-            -not (Test-Path $SearchRoot)
-        ) {
-            continue
-        }
-
-        $FoundExecutable = Get-ChildItem `
-            -Path $SearchRoot `
-            -Filter $FileName `
-            -File `
-            -Recurse `
-            -ErrorAction SilentlyContinue |
-            Select-Object -First 1
-
-        if ($null -ne $FoundExecutable) {
-            return $FoundExecutable.FullName
-        }
-    }
-
-    return $null
-}
 
 function Test-ApplicationInstalled {
     param (
@@ -1765,51 +1672,6 @@ function Find-DellCommandUpdateCli {
     return $null
 }
 
-function Test-ApplicationInstalledByDisplayName {
-    param (
-        [Parameter(Mandatory)]
-        [string[]]$DisplayNamePatterns
-    )
-
-    $UninstallRegistryPaths = @(
-        "HKCU:\Software\Microsoft\Windows\CurrentVersion\Uninstall\*"
-        "HKLM:\Software\Microsoft\Windows\CurrentVersion\Uninstall\*"
-        "HKLM:\Software\WOW6432Node\Microsoft\Windows\CurrentVersion\Uninstall\*"
-    )
-
-    foreach ($RegistryPath in $UninstallRegistryPaths) {
-        try {
-            $InstalledApplications = Get-ItemProperty `
-                -Path $RegistryPath `
-                -ErrorAction SilentlyContinue
-
-            foreach ($InstalledApplication in $InstalledApplications) {
-                if (
-                    [string]::IsNullOrWhiteSpace(
-                        $InstalledApplication.DisplayName
-                    )
-                ) {
-                    continue
-                }
-
-                foreach ($DisplayNamePattern in $DisplayNamePatterns) {
-                    if (
-                        $InstalledApplication.DisplayName -like `
-                            $DisplayNamePattern
-                    ) {
-                        return $true
-                    }
-                }
-            }
-        }
-        catch {
-            # Continue checking the other registry paths.
-        }
-    }
-
-    return $false
-}
-
 function Test-IsDellComputer {
     try {
         $ComputerSystem = Get-CimInstance `
@@ -1951,6 +1813,378 @@ function Get-ApplicationDefinition {
     return $Application
 }
 
+function Install-ApplicationFromDefinition {
+    param (
+        [Parameter(Mandatory)]
+        [psobject]$Application
+    )
+
+    Write-Host ""
+    Write-Host (
+        "Processing application: " +
+        $Application.DisplayName +
+        " [" +
+        $Application.InstallType +
+        "]"
+    )
+
+    switch ($Application.InstallType) {
+        "ChocolateyFirst" {
+            if (
+                [string]::IsNullOrWhiteSpace(
+                    $Application.ChocoName
+                )
+            ) {
+                Write-Failure (
+                    $Application.DisplayName +
+                    " has no Chocolatey package name."
+                )
+
+                return $false
+            }
+
+            Install-ChocolateyPackage `
+                -PackageName $Application.ChocoName
+
+            return $true
+        }
+
+        "ChocolateyRemaining" {
+            if (
+                [string]::IsNullOrWhiteSpace(
+                    $Application.ChocoName
+                )
+            ) {
+                Write-Failure (
+                    $Application.DisplayName +
+                    " has no Chocolatey package name."
+                )
+
+                return $false
+            }
+
+            Install-ChocolateyPackage `
+                -PackageName $Application.ChocoName
+
+            return $true
+        }
+
+        "WinGet" {
+            if (
+                [string]::IsNullOrWhiteSpace(
+                    $Application.WingetId
+                )
+            ) {
+                Write-Failure (
+                    $Application.DisplayName +
+                    " has no WinGet package ID."
+                )
+
+                return $false
+            }
+
+            $Installed = Install-WingetPackage `
+                -PackageId $Application.WingetId `
+                -Source $Application.WingetSource
+
+            if (
+                -not $Installed -and
+                -not [string]::IsNullOrWhiteSpace(
+                    $Application.InstallerDirectDownload
+                )
+            ) {
+                Write-Warning (
+                    $Application.DisplayName +
+                    " could not be installed through WinGet. " +
+                    "Opening the fallback download page."
+                )
+
+                Start-Process `
+                    -FilePath $Application.InstallerDirectDownload
+            }
+
+            return $Installed
+        }
+
+        "MsStore" {
+            if (
+                [string]::IsNullOrWhiteSpace(
+                    $Application.MsStoreId
+                )
+            ) {
+                Write-Failure (
+                    $Application.DisplayName +
+                    " has no Microsoft Store ID."
+                )
+
+                return $false
+            }
+
+            $Installed = Install-WingetPackage `
+                -PackageId $Application.MsStoreId `
+                -Source "msstore"
+
+            if (-not $Installed) {
+                Write-Warning (
+                    "Opening " +
+                    $Application.DisplayName +
+                    " in Microsoft Store."
+                )
+
+                Start-Process `
+                    -FilePath (
+                        "ms-windows-store://pdp/?ProductId=" +
+                        $Application.MsStoreId
+                    )
+            }
+
+            return $Installed
+        }
+
+        "DirectDownload" {
+            return Install-DirectDownloadApplication `
+                -Application $Application
+        }
+
+        "BuiltIn" {
+            $Installed = Test-ApplicationInstalled `
+                -DisplayNamePatterns $Application.DisplayNamePatterns `
+                -ExecutablePaths $Application.ExecutablePaths `
+                -AppxNamePatterns $Application.AppxNamePatterns `
+                -ServiceNames $Application.ServiceNames
+
+            if ($Installed) {
+                Write-Skip (
+                    $Application.DisplayName +
+                    " is a built-in application and is available."
+                )
+            }
+            else {
+                Write-Warning (
+                    $Application.DisplayName +
+                    " is marked as BuiltIn but could not be detected."
+                )
+            }
+
+            return $Installed
+        }
+
+        "DetectOnly" {
+            $Installed = Test-ApplicationInstalled `
+                -DisplayNamePatterns $Application.DisplayNamePatterns `
+                -ExecutablePaths $Application.ExecutablePaths `
+                -AppxNamePatterns $Application.AppxNamePatterns `
+                -ServiceNames $Application.ServiceNames
+
+            if ($Installed) {
+                Write-Skip (
+                    $Application.DisplayName +
+                    " was detected. No installation was requested."
+                )
+            }
+            else {
+                Write-Skip (
+                    $Application.DisplayName +
+                    " was not detected. No installation was requested."
+                )
+            }
+
+            return $Installed
+        }
+
+        default {
+            Write-Failure (
+                $Application.DisplayName +
+                " has an unsupported InstallType: " +
+                $Application.InstallType
+            )
+
+            return $false
+        }
+    }
+}
+
+function Install-DirectDownloadApplication {
+    param (
+        [Parameter(Mandatory)]
+        [psobject]$Application
+    )
+
+    $ApplicationInstalled = Test-ApplicationInstalled `
+        -DisplayNamePatterns $Application.DisplayNamePatterns `
+        -ExecutablePaths $Application.ExecutablePaths `
+        -AppxNamePatterns $Application.AppxNamePatterns `
+        -ServiceNames $Application.ServiceNames
+
+    if ($ApplicationInstalled) {
+        Write-Skip (
+            $Application.DisplayName +
+            " is already installed."
+        )
+
+        return $true
+    }
+
+    if (
+        [string]::IsNullOrWhiteSpace(
+            $Application.InstallerDirectDownload
+        )
+    ) {
+        Write-Failure (
+            $Application.DisplayName +
+            " has no direct download URL."
+        )
+
+        return $false
+    }
+
+    if (
+        [string]::IsNullOrWhiteSpace(
+            $Application.InstallerFileName
+        )
+    ) {
+        Write-Failure (
+            $Application.DisplayName +
+            " has no installer file name."
+        )
+
+        return $false
+    }
+
+    if (
+        -not (
+            Test-Path `
+                -LiteralPath $SoftwareDirectory `
+                -PathType Container
+        )
+    ) {
+        try {
+            New-Item `
+                -Path $SoftwareDirectory `
+                -ItemType Directory `
+                -Force `
+                -ErrorAction Stop | Out-Null
+        }
+        catch {
+            Write-Failure (
+                "Unable to create software directory " +
+                "${SoftwareDirectory}: " +
+                $_.Exception.Message
+            )
+
+            return $false
+        }
+    }
+
+    $InstallerPath = Join-Path `
+        -Path $SoftwareDirectory `
+        -ChildPath $Application.InstallerFileName
+
+    try {
+        if (
+            Test-Path `
+                -LiteralPath $InstallerPath `
+                -PathType Leaf
+        ) {
+            Remove-Item `
+                -LiteralPath $InstallerPath `
+                -Force `
+                -ErrorAction Stop
+        }
+
+        Write-Host (
+            "Downloading " +
+            $Application.DisplayName +
+            "..."
+        )
+
+        Invoke-WebRequest `
+            -Uri $Application.InstallerDirectDownload `
+            -OutFile $InstallerPath `
+            -UseBasicParsing `
+            -ErrorAction Stop
+
+        Unblock-File `
+            -LiteralPath $InstallerPath `
+            -ErrorAction SilentlyContinue
+
+        Write-Success (
+            $Application.DisplayName +
+            " installer was downloaded."
+        )
+
+        $InstallerProcess = Start-Process `
+            -FilePath $InstallerPath `
+            -ArgumentList $Application.InstallerArguments `
+            -Wait `
+            -PassThru `
+            -ErrorAction Stop
+
+        Write-Host (
+            $Application.DisplayName +
+            " installer exit code: " +
+            $InstallerProcess.ExitCode
+        )
+
+        if (
+            $InstallerProcess.ExitCode -in @(
+                1641
+                3010
+            )
+        ) {
+            $script:RestartRecommended = $true
+        }
+
+        Start-Sleep -Seconds 5
+
+        $ApplicationInstalled = Test-ApplicationInstalled `
+            -DisplayNamePatterns $Application.DisplayNamePatterns `
+            -ExecutablePaths $Application.ExecutablePaths `
+            -AppxNamePatterns $Application.AppxNamePatterns `
+            -ServiceNames $Application.ServiceNames
+
+        if ($ApplicationInstalled) {
+            Write-Success (
+                $Application.DisplayName +
+                " installation completed."
+            )
+
+            return $true
+        }
+
+        Write-Warning (
+            $Application.DisplayName +
+            " installation could not be verified."
+        )
+
+        return $false
+    }
+    catch {
+        Write-Failure (
+            $Application.DisplayName +
+            " installation failed: " +
+            $_.Exception.Message
+        )
+
+        if (
+            Test-Path `
+                -LiteralPath $InstallerPath `
+                -PathType Leaf
+        ) {
+            Write-Warning (
+                "Opening the installer interactively: " +
+                $InstallerPath
+            )
+
+            Start-Process `
+                -FilePath $InstallerPath `
+                -ErrorAction SilentlyContinue
+        }
+
+        return $false
+    }
+}
+
 # ============================================================
 # 0B: Verify administrator privileges
 # ============================================================
@@ -2084,17 +2318,15 @@ catch {
 # ============================================================
 # 4A: Install Chocolatey applications
 # ============================================================
-
 Write-Step "Step 4A: Install ChocolateyFirst Applications"
 
-$ChocolateyFirstApplications = $ApplicationDefinitions |
-    Where-Object {
-        $_.InstallType -eq "ChocolateyFirst"
+foreach ($Application in $ApplicationDefinitions) {
+    if ($Application.InstallType -ne "ChocolateyFirst") {
+        continue
     }
 
-foreach ($Application in $ChocolateyFirstApplications) {
-    Install-ChocolateyPackage `
-        -PackageName $Application.ChocoName | Out-Null
+    Install-ApplicationFromDefinition `
+        -Application $Application | Out-Null
 }
 
 Refresh-EnvironmentPath
@@ -2179,336 +2411,74 @@ else {
 }
 
 # ============================================================
-# 4B: Install remaining Chocolatey applications
+# 4B: Install remaining applications in definition order
 # ============================================================
 
-Write-Step "Step 4B: Install ChocolateyRemaining Applications"
+Write-Step "Step 4B: Install Remaining Applications"
 
-$ChocolateyRemainingApplications = $ApplicationDefinitions |
-    Where-Object {
-        $_.InstallType -eq "ChocolateyRemaining"
-    }
-
-foreach ($Application in $ChocolateyRemainingApplications) {
-    Install-ChocolateyPackage `
-        -PackageName $Application.ChocoName | Out-Null
-}
-
-Refresh-EnvironmentPath
-
-# ============================================================
-# 5: Verify or initialize WinGet
-# ============================================================
-
-Write-Step "Step 5: Verify Windows Package Manager"
-
-if (-not (Test-CommandAvailable -CommandName "winget.exe")) {
-    Write-Warning "winget.exe was not found. Attempting registration."
-
-    try {
-        Add-AppxPackage `
-            -RegisterByFamilyName `
-            -MainPackage `
-            "Microsoft.DesktopAppInstaller_8wekyb3d8bbwe" `
-            -ErrorAction Stop
-
-        Start-Sleep -Seconds 3
-        Refresh-EnvironmentPath
-    }
-    catch {
-        Write-Failure (
-            "Unable to register Windows Package Manager: " +
-            $_.Exception.Message
-        )
-    }
-}
-
-if (Test-CommandAvailable -CommandName "winget.exe") {
-    Write-Success "WinGet is available."
-    winget --version
-
-    try {
-        winget source update `
-            --disable-interactivity
-    
-        if ($LASTEXITCODE -eq 0) {
-            Write-Success "WinGet sources were updated."
-        }
-        else {
-            Write-Warning (
-                "WinGet source update returned exit code " +
-                "$LASTEXITCODE."
-            )
-        }
-    }
-    catch {
-        Write-Warning (
-            "Unable to update WinGet sources: " +
-            $_.Exception.Message
-        )
-    }
-}
-else {
-    Write-Failure "WinGet is still unavailable."
-}
-
-
-# ============================================================
-# 6A: Install applications with WinGet
-# ============================================================
-
-$WinGetApplications = $ApplicationDefinitions |
-    Where-Object {
-        $_.InstallType -eq "WinGet"
-    }
-
-foreach ($Application in $WinGetApplications) {
-    if ([string]::IsNullOrWhiteSpace($Application.WingetId)) {
-        Write-Warning (
-            $Application.DisplayName +
-            " has no WinGet package ID."
-        )
-
+foreach ($Application in $ApplicationDefinitions) {
+    # ChocolateyFirst applications were already installed
+    # before the browser extension pages were opened.
+    if ($Application.InstallType -eq "ChocolateyFirst") {
         continue
     }
 
-    $Installed = Install-WingetPackage `
-        -PackageId $Application.WingetId `
-        -Source $Application.WingetSource
+    Install-ApplicationFromDefinition `
+        -Application $Application | Out-Null
 
-    if (-not $Installed) {
-        Write-Warning (
-            $Application.DisplayName +
-            " installation failed."
-        )
-
-        if (
-            -not [string]::IsNullOrWhiteSpace(
-                $Application.InstallerDirectDownload
-            )
-        ) {
-            Start-Process `
-                -FilePath $Application.InstallerDirectDownload
-        }
-    }
+    Refresh-EnvironmentPath
 }
 
 # ============================================================
-# 6B: Install applications with MsStore
+# 7: Create desktop shortcuts
 # ============================================================
 
-$MsStoreApplications = $ApplicationDefinitions |
-    Where-Object {
-        $_.InstallType -eq "MsStore"
-    }
-
-foreach ($Application in $MsStoreApplications) {
-    if ([string]::IsNullOrWhiteSpace($Application.MsStoreId)) {
-        Write-Warning (
-            $Application.DisplayName +
-            " has no Microsoft Store ID."
-        )
-
-        continue
-    }
-
-    $Installed = Install-WingetPackage `
-        -PackageId $Application.MsStoreId `
-        -Source "msstore"
-
-    if (-not $Installed) {
-        Write-Warning (
-            "Opening " +
-            $Application.DisplayName +
-            " in Microsoft Store."
-        )
-
-        Start-Process (
-            "ms-windows-store://pdp/?ProductId=" +
-            $Application.MsStoreId
-        )
-    }
-}
-
-# ============================================================
-# Install DirectDownload applications
-# ============================================================
-
-$DirectDownloadApplications = $ApplicationDefinitions |
-    Where-Object {
-        $_.InstallType -eq "DirectDownload"
-    }
-
-foreach ($Application in $DirectDownloadApplications) {
-    $ApplicationInstalled = Test-ApplicationInstalled `
-        -DisplayNamePatterns $Application.DisplayNamePatterns `
-        -ExecutablePaths $Application.ExecutablePaths `
-        -AppxNamePatterns $Application.AppxNamePatterns `
-        -ServiceNames $Application.ServiceNames
-
-    if ($ApplicationInstalled) {
-        Write-Skip (
-            $Application.DisplayName +
-            " is already installed."
-        )
-
-        continue
-    }
-
-    if (
-        [string]::IsNullOrWhiteSpace(
-            $Application.InstallerDirectDownload
-        )
-    ) {
-        Write-Failure (
-            $Application.DisplayName +
-            " has no direct download URL."
-        )
-
-        continue
-    }
-
-    if (
-        [string]::IsNullOrWhiteSpace(
-            $Application.InstallerFileName
-        )
-    ) {
-        Write-Failure (
-            $Application.DisplayName +
-            " has no installer file name."
-        )
-
-        continue
-    }
-
-    $InstallerPath = Join-Path `
-        -Path $SoftwareDirectory `
-        -ChildPath $Application.InstallerFileName
-
-    try {
-        if (-not (
-            Test-Path `
-                -LiteralPath $SoftwareDirectory `
-                -PathType Container
-        )) {
-            New-Item `
-                -Path $SoftwareDirectory `
-                -ItemType Directory `
-                -Force `
-                -ErrorAction Stop | Out-Null
-        }
-
-        Write-Host (
-            "Downloading " +
-            $Application.DisplayName +
-            "..."
-        )
-
-        Invoke-WebRequest `
-            -Uri $Application.InstallerDirectDownload `
-            -OutFile $InstallerPath `
-            -UseBasicParsing `
-            -ErrorAction Stop
-
-        Unblock-File `
-            -LiteralPath $InstallerPath `
-            -ErrorAction SilentlyContinue
-
-        Write-Success (
-            $Application.DisplayName +
-            " was downloaded."
-        )
-
-        $InstallerProcess = Start-Process `
-            -FilePath $InstallerPath `
-            -ArgumentList $Application.InstallerArguments `
-            -Wait `
-            -PassThru `
-            -ErrorAction Stop
-
-        Write-Host (
-            $Application.DisplayName +
-            " installer exit code: " +
-            $InstallerProcess.ExitCode
-        )
-
-        Start-Sleep -Seconds 5
-
-        $ApplicationInstalled = Test-ApplicationInstalled `
-            -DisplayNamePatterns $Application.DisplayNamePatterns `
-            -ExecutablePaths $Application.ExecutablePaths `
-            -AppxNamePatterns $Application.AppxNamePatterns `
-            -ServiceNames $Application.ServiceNames
-
-        if ($ApplicationInstalled) {
-            Write-Success (
-                $Application.DisplayName +
-                " installation completed."
-            )
-
-            if (
-                $InstallerProcess.ExitCode -in @(
-                    1641
-                    3010
-                )
-            ) {
-                $RestartRecommended = $true
-            }
-        }
-        else {
-            Write-Warning (
-                $Application.DisplayName +
-                " installation could not be verified. " +
-                "Opening the installer interactively."
-            )
-
-            Start-Process `
-                -FilePath $InstallerPath `
-                -ErrorAction Stop
-        }
-    }
-    catch {
-        Write-Failure (
-            $Application.DisplayName +
-            " installation failed: " +
-            $_.Exception.Message
-        )
-
-        if (
-            Test-Path `
-                -LiteralPath $InstallerPath `
-                -PathType Leaf
-        ) {
-            Start-Process `
-                -FilePath $InstallerPath `
-                -ErrorAction SilentlyContinue
-        }
-    }
-}
-
-# ============================================================
-# 7A: Create the Calculator desktop shortcut
-# ============================================================
-
-Write-Step "Step 7A. Create Desktop Shortcuts"
+Write-Step "Step 7: Create Desktop Shortcuts"
 
 $PublicDesktop = [Environment]::GetFolderPath(
     "CommonDesktopDirectory"
 )
 
 foreach ($Application in $ApplicationDefinitions) {
-    if (-not $Application.CreateDesktopShortcut) {
+    if ($Application.CreateDesktopShortcut -ne $true) {
         continue
     }
 
-    $ExecutablePath = `
-        Find-ApplicationExecutableFromDefinition `
-            -Application $Application
+    $ApplicationInstalled = Test-ApplicationInstalled `
+        -DisplayNamePatterns $Application.DisplayNamePatterns `
+        -ExecutablePaths $Application.ExecutablePaths `
+        -AppxNamePatterns $Application.AppxNamePatterns `
+        -ServiceNames $Application.ServiceNames
+
+    if (-not $ApplicationInstalled) {
+        Write-Skip (
+            $Application.DisplayName +
+            " is not installed. Desktop shortcut was skipped."
+        )
+
+        continue
+    }
+
+    if (
+        [string]::IsNullOrWhiteSpace(
+            $Application.DesktopShortcutName
+        )
+    ) {
+        Write-Warning (
+            $Application.DisplayName +
+            " has no desktop shortcut name."
+        )
+
+        continue
+    }
+
+    $ExecutablePath = Find-ApplicationExecutableFromDefinition `
+        -Application $Application
 
     if ($null -eq $ExecutablePath) {
         Write-Warning (
             $Application.DisplayName +
-            " executable was not found. " +
+            " is installed, but its executable was not found. " +
             "Desktop shortcut was skipped."
         )
 
@@ -2548,23 +2518,21 @@ foreach ($Application in $ApplicationDefinitions) {
     if (-not $ApplicationInstalled) {
         Write-Skip (
             $Application.DisplayName +
-            " is not installed. " +
-            "Startup configuration was skipped."
+            " is not installed. Startup configuration was skipped."
         )
 
         continue
     }
 
     if ($Application.StartupAction -eq $true) {
-        $ExecutablePath = `
-            Find-ApplicationExecutableFromDefinition `
-                -Application $Application
+        $ExecutablePath = Find-ApplicationExecutableFromDefinition `
+            -Application $Application
 
         if ($null -eq $ExecutablePath) {
             Write-Warning (
                 $Application.DisplayName +
-                " is installed, but its executable " +
-                "could not be found."
+                " is installed, but its executable could not be found. " +
+                "Startup could not be enabled."
             )
 
             continue
@@ -2594,6 +2562,13 @@ foreach ($Application in $ApplicationDefinitions) {
 
             Disable-StartupApprovedEntry `
                 -Names $Application.StartupNames
+        }
+        else {
+            Write-Warning (
+                $Application.DisplayName +
+                " is configured to disable startup, but " +
+                "StartupNames is empty."
+            )
         }
 
         if ($Application.ServiceNames.Count -gt 0) {
@@ -2664,12 +2639,50 @@ catch {
 }
 
 # ============================================================
-# 10: Configure Windows 11 taskbar pins for installed applications
+# 10: Configure Windows 11 taskbar
 # ============================================================
 
-Write-Step "Configure Windows 11 Taskbar for Installed Applications"
+Write-Step "Step 10: Configure Windows 11 Taskbar"
+
+$TaskbarShortcutDirectory = Join-Path `
+    -Path $env:ProgramData `
+    -ChildPath (
+        "Microsoft\Windows\Start Menu\" +
+        "Programs\Kuma Taskbar"
+    )
+
+$TaskbarLayoutDirectory = Join-Path `
+    -Path $env:ProgramData `
+    -ChildPath "KumaSetup"
+
+$TaskbarLayoutPath = Join-Path `
+    -Path $TaskbarLayoutDirectory `
+    -ChildPath "TaskbarLayout.xml"
+
+$TaskbarPinEntries = @()
+
+try {
+    New-Item `
+        -Path $TaskbarShortcutDirectory `
+        -ItemType Directory `
+        -Force `
+        -ErrorAction Stop | Out-Null
+
+    New-Item `
+        -Path $TaskbarLayoutDirectory `
+        -ItemType Directory `
+        -Force `
+        -ErrorAction Stop | Out-Null
+}
+catch {
+    Write-Failure (
+        "Unable to initialize taskbar directories: " +
+        $_.Exception.Message
+    )
+}
+
 foreach ($Application in $ApplicationDefinitions) {
-    if (-not $Application.CreateTaskbarShortcut) {
+    if ($Application.CreateTaskbarShortcut -ne $true) {
         continue
     }
 
@@ -2694,8 +2707,7 @@ foreach ($Application in $ApplicationDefinitions) {
         )
     ) {
         $TaskbarPinEntries += (
-            '                <taskbar:UWA ' +
-            'AppUserModelID="' +
+            '        <taskbar:UWA AppUserModelID="' +
             $Application.AppUserModelId +
             '" />'
         )
@@ -2708,14 +2720,27 @@ foreach ($Application in $ApplicationDefinitions) {
         continue
     }
 
-    $ExecutablePath = `
-        Find-ApplicationExecutableFromDefinition `
-            -Application $Application
+    if (
+        [string]::IsNullOrWhiteSpace(
+            $Application.TaskbarShortcutName
+        )
+    ) {
+        Write-Warning (
+            $Application.DisplayName +
+            " has no taskbar shortcut name."
+        )
+
+        continue
+    }
+
+    $ExecutablePath = Find-ApplicationExecutableFromDefinition `
+        -Application $Application
 
     if ($null -eq $ExecutablePath) {
         Write-Warning (
             $Application.DisplayName +
-            " is installed, but its executable was not found."
+            " is installed, but its executable was not found. " +
+            "Taskbar pin was skipped."
         )
 
         continue
@@ -2733,19 +2758,99 @@ foreach ($Application in $ApplicationDefinitions) {
         -ShortcutPath $ShortcutPath `
         -IconLocation "$ExecutablePath,0"
 
-    if ($ShortcutCreated) {
-        $TaskbarPinEntries += (
-            '                <taskbar:DesktopApp ' +
-            'DesktopApplicationLinkPath="' +
-            '%ALLUSERSPROFILE%\Microsoft\Windows\Start Menu\' +
-            'Programs\Kuma Taskbar\' +
-            $Application.TaskbarShortcutName +
-            '.lnk" />'
-        )
+    if (-not $ShortcutCreated) {
+        continue
+    }
+
+    $TaskbarPinEntries += (
+        '        <taskbar:DesktopApp ' +
+        'DesktopApplicationLinkPath="' +
+        '%ALLUSERSPROFILE%\Microsoft\Windows\Start Menu\' +
+        'Programs\Kuma Taskbar\' +
+        $Application.TaskbarShortcutName +
+        '.lnk" />'
+    )
+
+    Write-Success (
+        $Application.DisplayName +
+        " was added to the taskbar layout."
+    )
+}
+
+if ($TaskbarPinEntries.Count -eq 0) {
+    Write-Skip (
+        "No installed applications were selected for taskbar pinning."
+    )
+}
+else {
+    $TaskbarPinsXml = $TaskbarPinEntries -join "`r`n"
+
+    $TaskbarLayoutXml = @"
+<?xml version="1.0" encoding="utf-8"?>
+<LayoutModificationTemplate
+    xmlns="http://schemas.microsoft.com/Start/2014/LayoutModification"
+    xmlns:defaultlayout="http://schemas.microsoft.com/Start/2014/FullDefaultLayout"
+    xmlns:start="http://schemas.microsoft.com/Start/2014/StartLayout"
+    xmlns:taskbar="http://schemas.microsoft.com/Start/2014/TaskbarLayout"
+    Version="1">
+    <CustomTaskbarLayoutCollection PinListPlacement="Replace">
+        <defaultlayout:TaskbarLayout>
+            <taskbar:TaskbarPinList>
+$TaskbarPinsXml
+            </taskbar:TaskbarPinList>
+        </defaultlayout:TaskbarLayout>
+    </CustomTaskbarLayoutCollection>
+</LayoutModificationTemplate>
+"@
+
+    try {
+        Set-Content `
+            -LiteralPath $TaskbarLayoutPath `
+            -Value $TaskbarLayoutXml `
+            -Encoding UTF8 `
+            -Force `
+            -ErrorAction Stop
 
         Write-Success (
-            $Application.DisplayName +
-            " was added to the taskbar layout."
+            "Taskbar layout was generated: " +
+            $TaskbarLayoutPath
+        )
+
+        $ExplorerPolicyPath = (
+            "HKLM:\SOFTWARE\Policies\Microsoft\Windows\Explorer"
+        )
+
+        if (-not (Test-Path $ExplorerPolicyPath)) {
+            New-Item `
+                -Path $ExplorerPolicyPath `
+                -Force `
+                -ErrorAction Stop | Out-Null
+        }
+
+        New-ItemProperty `
+            -Path $ExplorerPolicyPath `
+            -Name "StartLayoutFile" `
+            -PropertyType String `
+            -Value $TaskbarLayoutPath `
+            -Force `
+            -ErrorAction Stop | Out-Null
+
+        New-ItemProperty `
+            -Path $ExplorerPolicyPath `
+            -Name "LockedStartLayout" `
+            -PropertyType DWord `
+            -Value 1 `
+            -Force `
+            -ErrorAction Stop | Out-Null
+
+        Write-Success (
+            "The Windows taskbar layout policy was configured."
+        )
+    }
+    catch {
+        Write-Failure (
+            "Unable to configure the taskbar layout: " +
+            $_.Exception.Message
         )
     }
 }
@@ -2758,38 +2863,39 @@ Write-Step "Mute System Audio"
 
 Refresh-EnvironmentPath
 
-$NirCmdPath = Get-Command `
-    -Name "nircmd.exe" `
-    -ErrorAction SilentlyContinue
+try {
+    $NirCmdApplication = Get-ApplicationDefinition `
+        -DisplayName "NirCmd"
 
-if ($null -ne $NirCmdPath) {
-    & $NirCmdPath.Source mutesysvolume 1
+    $NirCmdExecutable = Find-ApplicationExecutableFromDefinition `
+        -Application $NirCmdApplication
 
-    if ($LASTEXITCODE -eq 0) {
-        Write-Success "System audio was muted."
-    }
-    else {
+    if ($null -eq $NirCmdExecutable) {
         Write-Failure (
-            "NirCmd returned exit code $LASTEXITCODE."
+            "NirCmd is installed or defined, but its executable " +
+            "could not be found."
         )
     }
-}
-else {
-    $PossibleNirCmd = Get-ChildItem `
-        -Path "$env:ChocolateyInstall\lib" `
-        -Filter "nircmd.exe" `
-        -File `
-        -Recurse `
-        -ErrorAction SilentlyContinue |
-        Select-Object -First 1
-
-    if ($null -ne $PossibleNirCmd) {
-        & $PossibleNirCmd.FullName mutesysvolume 1
-        Write-Success "System audio was muted."
-    }
     else {
-        Write-Failure "nircmd.exe could not be found."
+        & $NirCmdExecutable mutesysvolume 1
+
+        if ($LASTEXITCODE -eq 0) {
+            Write-Success "System audio was muted."
+        }
+        else {
+            Write-Failure (
+                "NirCmd returned exit code " +
+                $LASTEXITCODE +
+                "."
+            )
+        }
     }
+}
+catch {
+    Write-Failure (
+        "Unable to mute system audio: " +
+        $_.Exception.Message
+    )
 }
 
 # ============================================================
@@ -3205,29 +3311,65 @@ else {
 # 11: Display results
 # ============================================================
 
-Write-Step "Step 14: Setup Results"
+Write-Step "Step 11: Setup Results"
 
 Write-Host "Computer: $env:COMPUTERNAME"
 Write-Host "User: $env:USERDOMAIN\$env:USERNAME"
 Write-Host "Software directory: $SoftwareDirectory"
-Write-Host "Calculator shortcut: $CalculatorShortcut"
+Write-Host ""
 
-if ($null -ne $SnipastePath) {
-    Write-Host "Snipaste executable: $SnipastePath"
+$InstalledApplicationCount = 0
+$MissingApplicationCount = 0
+
+foreach ($Application in $ApplicationDefinitions) {
+    $ApplicationInstalled = Test-ApplicationInstalled `
+        -DisplayNamePatterns $Application.DisplayNamePatterns `
+        -ExecutablePaths $Application.ExecutablePaths `
+        -AppxNamePatterns $Application.AppxNamePatterns `
+        -ServiceNames $Application.ServiceNames
+
+    if ($ApplicationInstalled) {
+        $InstalledApplicationCount++
+
+        Write-Host (
+            "[INSTALLED] " +
+            $Application.DisplayName
+        ) -ForegroundColor Green
+    }
+    else {
+        $MissingApplicationCount++
+
+        Write-Host (
+            "[NOT DETECTED] " +
+            $Application.DisplayName
+        ) -ForegroundColor DarkYellow
+    }
 }
+
+Write-Host ""
+Write-Host (
+    "Detected applications: " +
+    $InstalledApplicationCount
+)
+
+Write-Host (
+    "Applications not detected: " +
+    $MissingApplicationCount
+)
 
 if ($RestartRecommended) {
     Write-Host ""
     Write-Host (
-        "A restart is recommended because a Windows feature " +
-        "was changed."
+        "A restart is recommended because Windows features, " +
+        "applications, or drivers were changed."
     ) -ForegroundColor Yellow
 }
 
 Write-Host ""
-Write-Host "Software setup has completed." -ForegroundColor Green
+Write-Host (
+    "Software setup has completed."
+) -ForegroundColor Green
 
-# Return success to the parent launcher.
 $global:LASTEXITCODE = 0
 
 exit 0
