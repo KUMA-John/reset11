@@ -33,21 +33,12 @@ $ProgressPreference = "SilentlyContinue"
 # ============================================================
 # Application definitions
 #
-# The application processing order is exactly the array order.
+# Applications are processed in array order within each
+# installation group.
 #
-# InstallType:
-#   ChocolateyFirst
-#   ChocolateyRemaining
-#   WinGet
-#   DirectDownload
-#   MsStore
-#   BuiltIn
-#   DetectOnly
-#
-# StartupAction:
-#   $true  = explicitly enable startup
-#   $false = explicitly disable startup
-#   $null  = do not modify startup
+# ChocolateyFirst applications are installed first.
+# Surfshark extension pages are opened next.
+# ChocolateyRemaining applications are installed afterward.
 # ============================================================
 
 $ApplicationDefinitions = @(
@@ -641,47 +632,55 @@ $ApplicationDefinitions = @(
 
     [pscustomobject]@{
         DisplayName               = "Microsoft Teams"
+    
         DisplayNamePatterns       = @(
             "Microsoft Teams*"
             "Teams Machine-Wide Installer*"
         )
+    
         ExecutablePaths           = @(
             "$env:LOCALAPPDATA\Microsoft\Teams\current\Teams.exe"
             "$env:LOCALAPPDATA\Microsoft\WindowsApps\ms-teams.exe"
         )
+    
         ExecutableName            = "ms-teams.exe"
+    
         SearchRoots               = @(
             "$env:LOCALAPPDATA\Microsoft"
             "$env:ProgramFiles\WindowsApps"
         )
-
-        InstallType               = "ChocolateyRemaining"
-        ChocoName                 = "microsoft-teams-new-bootstrapper"
+    
+        InstallType               = "DetectOnly"
+        ChocoName                 = $null
         WingetId                  = $null
         WingetSource              = $null
         MsStoreId                 = $null
         InstallerDirectDownload  = $null
         InstallerFileName        = $null
         InstallerArguments       = @()
-
+    
         CreateDesktopShortcut     = $false
         DesktopShortcutName       = "Microsoft Teams"
-
+    
         CreateTaskbarShortcut     = $false
         TaskbarShortcutName       = "Microsoft Teams"
-
+    
         StartupAction             = $false
+    
         StartupNames              = @(
             "Teams"
             "Microsoft Teams"
             "MSTeams"
             "com.squirrel.Teams.Teams"
         )
+    
         ProcessNames              = @(
             "ms-teams"
             "Teams"
         )
+    
         ServiceNames              = @()
+    
         AppxNamePatterns          = @(
             "MSTeams"
             "MicrosoftTeams"
@@ -2039,6 +2038,28 @@ function Disable-ApplicationServices {
     }
 }
 
+function Get-ApplicationDefinition {
+    param (
+        [Parameter(Mandatory)]
+        [string]$DisplayName
+    )
+
+    $Application = $ApplicationDefinitions |
+        Where-Object {
+            $_.DisplayName -eq $DisplayName
+        } |
+        Select-Object -First 1
+
+    if ($null -eq $Application) {
+        throw (
+            "Application definition was not found: " +
+            $DisplayName
+        )
+    }
+
+    return $Application
+}
+
 # ============================================================
 # 0B: Verify administrator privileges
 # ============================================================
@@ -2390,16 +2411,6 @@ if (-not $StickyNotesInstalled) {
     Start-Process `
         "ms-windows-store://pdp/?ProductId=9NBLGGH4QGHW"
 }
-
-# ============================================================
-# 6D: Install Microsoft Teams
-# ============================================================
-
-Write-Step "Step 8: Install Microsoft Teams"
-
-# This package installs the new Teams client machine-wide.
-Install-ChocolateyPackage `
-    -PackageName "microsoft-teams-new-bootstrapper"
 
 # ============================================================
 # 6E: Download and install Outline Client
@@ -2863,304 +2874,83 @@ foreach ($Application in $ApplicationDefinitions) {
 }
 
 # ============================================================
-# 8A: Disable installed AnyDesk, Microsoft Teams, and OneDrive
-# startup entries
+# 8: Configure application startup
 # ============================================================
 
-Write-Step "Disable Installed Unwanted Startup Applications"
+Write-Step "Step 8: Configure Application Startup"
 
-# ------------------------------------------------------------
-# Detect AnyDesk
-# ------------------------------------------------------------
+foreach ($Application in $ApplicationDefinitions) {
+    if ($null -eq $Application.StartupAction) {
+        continue
+    }
 
-$AnyDeskInstalled = Test-ApplicationInstalled `
-    -DisplayNamePatterns @(
-        "AnyDesk*"
-    ) `
-    -ExecutablePaths @(
-        "$env:ProgramFiles\AnyDesk\AnyDesk.exe"
-        "${env:ProgramFiles(x86)}\AnyDesk\AnyDesk.exe"
-        "$env:LOCALAPPDATA\AnyDesk\AnyDesk.exe"
-        "$env:APPDATA\AnyDesk\AnyDesk.exe"
-    ) `
-    -ServiceNames @(
-        "AnyDesk"
-    )
+    $ApplicationInstalled = Test-ApplicationInstalled `
+        -DisplayNamePatterns $Application.DisplayNamePatterns `
+        -ExecutablePaths $Application.ExecutablePaths `
+        -AppxNamePatterns $Application.AppxNamePatterns `
+        -ServiceNames $Application.ServiceNames
 
-if ($AnyDeskInstalled) {
-    Write-Host "AnyDesk is installed. Disabling startup."
-
-    Stop-ApplicationProcesses `
-        -ProcessNames @(
-            "AnyDesk"
+    if (-not $ApplicationInstalled) {
+        Write-Skip (
+            $Application.DisplayName +
+            " is not installed. " +
+            "Startup configuration was skipped."
         )
 
-    Remove-StartupEntry `
-        -Names @(
-            "AnyDesk"
-            "AnyDesk.exe"
-        )
+        continue
+    }
 
-    Disable-StartupApprovedEntry `
-        -Names @(
-            "AnyDesk"
-            "AnyDesk.exe"
-        )
+    if ($Application.StartupAction -eq $true) {
+        $ExecutablePath = `
+            Find-ApplicationExecutableFromDefinition `
+                -Application $Application
 
-    $AnyDeskService = Get-Service `
-        -Name "AnyDesk" `
-        -ErrorAction SilentlyContinue
-
-    if ($null -ne $AnyDeskService) {
-        try {
-            if ($AnyDeskService.Status -ne "Stopped") {
-                Stop-Service `
-                    -Name "AnyDesk" `
-                    -Force `
-                    -ErrorAction Stop
-            }
-
-            Set-Service `
-                -Name "AnyDesk" `
-                -StartupType Manual `
-                -ErrorAction Stop
-
-            Write-Success (
-                "AnyDesk service startup type was set to Manual."
-            )
-        }
-        catch {
+        if ($null -eq $ExecutablePath) {
             Write-Warning (
-                "Unable to configure the AnyDesk service: " +
-                $_.Exception.Message
+                $Application.DisplayName +
+                " is installed, but its executable " +
+                "could not be found."
             )
+
+            continue
         }
-    }
 
-    Write-Success "AnyDesk startup was disabled."
-}
-else {
-    Write-Skip (
-        "AnyDesk is not installed. Startup configuration was skipped."
-    )
-}
-
-# ------------------------------------------------------------
-# Detect Microsoft Teams
-# ------------------------------------------------------------
-
-$TeamsInstalled = Test-ApplicationInstalled `
-    -DisplayNamePatterns @(
-        "Microsoft Teams*"
-        "Teams Machine-Wide Installer*"
-    ) `
-    -ExecutablePaths @(
-        "$env:LOCALAPPDATA\Microsoft\Teams\current\Teams.exe"
-        "$env:LOCALAPPDATA\Microsoft\WindowsApps\ms-teams.exe"
-        "$env:ProgramFiles\WindowsApps\MSTeams_*\ms-teams.exe"
-    ) `
-    -AppxNamePatterns @(
-        "MSTeams"
-        "MicrosoftTeams"
-    )
-
-if ($TeamsInstalled) {
-    Write-Host "Microsoft Teams is installed. Disabling startup."
-
-    Stop-ApplicationProcesses `
-        -ProcessNames @(
-            "ms-teams"
-            "Teams"
-        )
-
-    Remove-StartupEntry `
-        -Names @(
-            "Teams"
-            "Microsoft Teams"
-            "MSTeams"
-            "com.squirrel.Teams.Teams"
-        )
-
-    Disable-StartupApprovedEntry `
-        -Names @(
-            "Teams"
-            "Microsoft Teams"
-            "MSTeams"
-            "com.squirrel.Teams.Teams"
-        )
-
-    Write-Success "Microsoft Teams startup was disabled."
-}
-else {
-    Write-Skip (
-        "Microsoft Teams is not installed. " +
-        "Startup configuration was skipped."
-    )
-}
-
-# ------------------------------------------------------------
-# Detect Microsoft OneDrive
-# ------------------------------------------------------------
-
-$OneDriveInstalled = Test-ApplicationInstalled `
-    -DisplayNamePatterns @(
-        "Microsoft OneDrive*"
-    ) `
-    -ExecutablePaths @(
-        "$env:LOCALAPPDATA\Microsoft\OneDrive\OneDrive.exe"
-        "$env:ProgramFiles\Microsoft OneDrive\OneDrive.exe"
-        "${env:ProgramFiles(x86)}\Microsoft OneDrive\OneDrive.exe"
-        "$env:SystemRoot\System32\OneDriveSetup.exe"
-        "$env:SystemRoot\SysWOW64\OneDriveSetup.exe"
-    )
-
-if ($OneDriveInstalled) {
-    Write-Host "Microsoft OneDrive is installed. Disabling startup."
-
-    Stop-ApplicationProcesses `
-        -ProcessNames @(
-            "OneDrive"
-        )
-
-    Remove-StartupEntry `
-        -Names @(
-            "OneDrive"
-            "Microsoft OneDrive"
-        )
-
-    Disable-StartupApprovedEntry `
-        -Names @(
-            "OneDrive"
-            "Microsoft OneDrive"
-        )
-
-    $CurrentUserRunPath = `
-        "HKCU:\Software\Microsoft\Windows\CurrentVersion\Run"
-
-    if (Test-Path $CurrentUserRunPath) {
-        Remove-ItemProperty `
-            -Path $CurrentUserRunPath `
-            -Name "OneDrive" `
-            -Force `
-            -ErrorAction SilentlyContinue
-    }
-
-    Write-Success "Microsoft OneDrive startup was disabled."
-}
-else {
-    Write-Skip (
-        "Microsoft OneDrive is not installed. " +
-        "Startup configuration was skipped."
-    )
-}
-
-# ============================================================
-# 8B: Configure installed Slack and Snipaste startup
-# ============================================================
-
-Write-Step "Step 11: Configure Installed Slack and Snipaste Startup"
-
-# ------------------------------------------------------------
-# Detect and configure Slack
-# ------------------------------------------------------------
-
-$SlackInstalled = Test-ApplicationInstalled `
-    -DisplayNamePatterns @(
-        "Slack*"
-    ) `
-    -ExecutablePaths @(
-        "$env:LOCALAPPDATA\slack\slack.exe"
-        "$env:LOCALAPPDATA\Programs\slack\slack.exe"
-        "$env:ProgramFiles\Slack\slack.exe"
-        "${env:ProgramFiles(x86)}\Slack\slack.exe"
-    ) `
-    -AppxNamePatterns @(
-        "*Slack*"
-    )
-
-if ($SlackInstalled) {
-    $SlackPath = Find-ApplicationExecutable `
-        -FileName "slack.exe" `
-        -CandidatePaths @(
-            "$env:LOCALAPPDATA\slack\slack.exe"
-            "$env:LOCALAPPDATA\Programs\slack\slack.exe"
-            "$env:ProgramFiles\Slack\slack.exe"
-            "${env:ProgramFiles(x86)}\Slack\slack.exe"
-        ) `
-        -SearchRoots @(
-            "$env:LOCALAPPDATA\slack"
-            "$env:LOCALAPPDATA\Programs"
-            "$env:ProgramFiles\Slack"
-            "${env:ProgramFiles(x86)}\Slack"
-            "$env:ChocolateyInstall\lib\slack"
-        )
-
-    if ($null -ne $SlackPath) {
         Enable-ApplicationStartup `
-            -ApplicationName "Slack" `
-            -ExecutablePath $SlackPath
+            -ApplicationName $Application.DisplayName `
+            -ExecutablePath $ExecutablePath
 
-        Write-Success "Slack startup was configured."
+        Write-Success (
+            $Application.DisplayName +
+            " startup was enabled."
+        )
+
+        continue
     }
-    else {
-        Write-Warning (
-            "Slack appears to be installed, but slack.exe " +
-            "could not be found. Startup was not configured."
+
+    if ($Application.StartupAction -eq $false) {
+        if ($Application.ProcessNames.Count -gt 0) {
+            Stop-ApplicationProcesses `
+                -ProcessNames $Application.ProcessNames
+        }
+
+        if ($Application.StartupNames.Count -gt 0) {
+            Remove-StartupEntry `
+                -Names $Application.StartupNames
+
+            Disable-StartupApprovedEntry `
+                -Names $Application.StartupNames
+        }
+
+        if ($Application.ServiceNames.Count -gt 0) {
+            Disable-ApplicationServices `
+                -Application $Application
+        }
+
+        Write-Success (
+            $Application.DisplayName +
+            " startup was disabled."
         )
     }
-}
-else {
-    $SlackPath = $null
-
-    Write-Skip (
-        "Slack is not installed. Startup configuration was skipped."
-    )
-}
-
-# ------------------------------------------------------------
-# Detect and configure Snipaste
-# ------------------------------------------------------------
-
-$SnipasteInstalled = Test-ApplicationInstalled `
-    -DisplayNamePatterns @(
-        "Snipaste*"
-    ) `
-    -ExecutablePaths @(
-        "C:\tools\snipaste\Snipaste.exe"
-        "C:\tools\snipaste\snipaste.exe"
-        "$env:ChocolateyInstall\bin\Snipaste.exe"
-        "$env:ProgramFiles\Snipaste\Snipaste.exe"
-        "${env:ProgramFiles(x86)}\Snipaste\Snipaste.exe"
-        "$env:LOCALAPPDATA\Snipaste\Snipaste.exe"
-        "$env:ChocolateyInstall\lib\snipaste\tools\Snipaste.exe"
-    ) `
-    -AppxNamePatterns @(
-        "*Snipaste*"
-    )
-
-if ($SnipasteInstalled) {
-    $SnipastePath = Find-SnipasteExecutable
-
-    if ($null -ne $SnipastePath) {
-        Enable-ApplicationStartup `
-            -ApplicationName "Snipaste" `
-            -ExecutablePath $SnipastePath
-
-        Write-Success "Snipaste startup was configured."
-    }
-    else {
-        Write-Warning (
-            "Snipaste appears to be installed, but Snipaste.exe " +
-            "could not be found. Startup was not configured."
-        )
-    }
-}
-else {
-    $SnipastePath = $null
-
-    Write-Skip (
-        "Snipaste is not installed. Startup configuration was skipped."
-    )
 }
 
 # ============================================================
