@@ -650,8 +650,8 @@ $ApplicationDefinitions = @(
             "$env:ProgramFiles\WindowsApps"
         )
     
-        InstallType               = "DetectOnly"
-        ChocoName                 = $null
+        InstallType               = "ChocolateyRemaining"
+        ChocoName                 = "microsoft-teams-new-bootstrapper"
         WingetId                  = $null
         WingetSource              = $null
         MsStoreId                 = $null
@@ -1765,115 +1765,6 @@ function Find-DellCommandUpdateCli {
     return $null
 }
 
-function Get-OutlineClientExecutable {
-    $CandidatePaths = @(
-        "$env:LOCALAPPDATA\Programs\Outline Client\Outline Client.exe"
-        "$env:LOCALAPPDATA\Programs\Outline\Outline.exe"
-        "$env:LOCALAPPDATA\Outline\Outline.exe"
-        "$env:LOCALAPPDATA\Programs\outline-client\Outline Client.exe"
-        "$env:LOCALAPPDATA\Programs\outline-client\Outline.exe"
-        "$env:ProgramFiles\Outline Client\Outline Client.exe"
-        "$env:ProgramFiles\Outline\Outline.exe"
-        "${env:ProgramFiles(x86)}\Outline Client\Outline Client.exe"
-        "${env:ProgramFiles(x86)}\Outline\Outline.exe"
-    )
-
-    foreach ($CandidatePath in $CandidatePaths) {
-        if (
-            -not [string]::IsNullOrWhiteSpace($CandidatePath) -and
-            (Test-Path -LiteralPath $CandidatePath -PathType Leaf)
-        ) {
-            return $CandidatePath
-        }
-    }
-
-    $SearchRoots = @(
-        "$env:LOCALAPPDATA\Programs"
-        "$env:LOCALAPPDATA"
-        "$env:ProgramFiles"
-        "${env:ProgramFiles(x86)}"
-    )
-
-    $ExecutableNames = @(
-        "Outline Client.exe"
-        "Outline.exe"
-    )
-
-    foreach ($SearchRoot in $SearchRoots) {
-        if (
-            [string]::IsNullOrWhiteSpace($SearchRoot) -or
-            -not (
-                Test-Path `
-                    -LiteralPath $SearchRoot `
-                    -PathType Container
-            )
-        ) {
-            continue
-        }
-
-        foreach ($ExecutableName in $ExecutableNames) {
-            $FoundExecutable = Get-ChildItem `
-                -LiteralPath $SearchRoot `
-                -Filter $ExecutableName `
-                -File `
-                -Recurse `
-                -ErrorAction SilentlyContinue |
-                Where-Object {
-                    $_.FullName -match "Outline"
-                } |
-                Select-Object -First 1
-
-            if ($null -ne $FoundExecutable) {
-                return $FoundExecutable.FullName
-            }
-        }
-    }
-
-    return $null
-}
-
-function Test-OutlineClientInstalled {
-    $OutlineExecutable = Get-OutlineClientExecutable
-
-    if ($null -ne $OutlineExecutable) {
-        return $true
-    }
-
-    $UninstallRegistryPaths = @(
-        "HKCU:\Software\Microsoft\Windows\CurrentVersion\Uninstall\*"
-        "HKLM:\Software\Microsoft\Windows\CurrentVersion\Uninstall\*"
-        "HKLM:\Software\WOW6432Node\Microsoft\Windows\CurrentVersion\Uninstall\*"
-    )
-
-    foreach ($RegistryPath in $UninstallRegistryPaths) {
-        try {
-            $InstalledApplication = Get-ItemProperty `
-                -Path $RegistryPath `
-                -ErrorAction SilentlyContinue |
-                Where-Object {
-                    (
-                        -not [string]::IsNullOrWhiteSpace(
-                            $_.DisplayName
-                        )
-                    ) -and (
-                        $_.DisplayName -match "^Outline(\s+Client)?$" -or
-                        $_.DisplayName -like "Outline Client*"
-                    )
-                } |
-                Select-Object -First 1
-
-            if ($null -ne $InstalledApplication) {
-                return $true
-            }
-        }
-        catch {
-            # Continue checking the other registry paths.
-        }
-    }
-
-    return $false
-}
-
 function Test-ApplicationInstalledByDisplayName {
     param (
         [Parameter(Mandatory)]
@@ -2363,473 +2254,108 @@ else {
 
 
 # ============================================================
-# 6A: Install AnyDesk
+# 6A: Install applications with WinGet
 # ============================================================
 
-Write-Step "Install AnyDesk"
-
-$AnyDeskInstalled = Install-WingetPackage `
-    -PackageId "AnyDesk.AnyDesk" `
-    -Source "winget"
-
-if (-not $AnyDeskInstalled) {
-    Write-Failure "AnyDesk installation failed."
-}
-
-
-
-
-# ============================================================
-# 6B: Install Google Japanese Input
-# ============================================================
-
-Write-Step "Step 6: Install Google Japanese Input"
-
-$JapaneseImeInstalled = Install-WingetPackage `
-    -PackageId "Google.JapaneseIME" `
-    -Source "winget"
-
-if (-not $JapaneseImeInstalled) {
-    Write-Warning "Opening the official Google Japanese Input page."
-
-    Start-Process "https://www.google.co.jp/ime/"
-}
-
-# ============================================================
-# 6C: Install Microsoft Sticky Notes
-# ============================================================
-
-Write-Step "Step 7: Install Microsoft Sticky Notes"
-
-$StickyNotesInstalled = Install-WingetPackage `
-    -PackageId "9NBLGGH4QGHW" `
-    -Source "msstore"
-
-if (-not $StickyNotesInstalled) {
-    Write-Warning "Opening Microsoft Sticky Notes in Microsoft Store."
-
-    Start-Process `
-        "ms-windows-store://pdp/?ProductId=9NBLGGH4QGHW"
-}
-
-# ============================================================
-# 6E: Download and install Outline Client
-# ============================================================
-
-Write-Step "Step 9: Install Outline Client"
-
-$SoftwareDirectory = "C:\Software"
-
-$OutlineInstaller = Join-Path `
-    -Path $SoftwareDirectory `
-    -ChildPath "Outline-Client.exe"
-
-$OutlineExecutable = Get-OutlineClientExecutable
-
-if (
-    (Test-OutlineClientInstalled) -and
-    $null -ne $OutlineExecutable
-) {
-    Write-Skip "Outline Client is already installed."
-    Write-Host "Outline executable: $OutlineExecutable"
-}
-elseif (Test-OutlineClientInstalled) {
-    Write-Skip (
-        "Outline Client appears to be installed, " +
-        "but its executable path could not be determined."
-    )
-}
-else {
-    try {
-        if (-not (
-            Test-Path `
-                -LiteralPath $SoftwareDirectory `
-                -PathType Container
-        )) {
-            New-Item `
-                -Path $SoftwareDirectory `
-                -ItemType Directory `
-                -Force `
-                -ErrorAction Stop | Out-Null
-        }
-
-        Write-Host "Downloading Outline Client..."
-
-        Invoke-WebRequest `
-            -Uri (
-                "https://s3.amazonaws.com/" +
-                "outline-releases/client/windows/stable/" +
-                "Outline-Client.exe"
-            ) `
-            -OutFile $OutlineInstaller `
-            -UseBasicParsing `
-            -ErrorAction Stop
-
-        Unblock-File `
-            -LiteralPath $OutlineInstaller `
-            -ErrorAction SilentlyContinue
-
-        Write-Success "Outline Client was downloaded."
-
-        $OutlineInstalled = $false
-
-        $SilentArguments = @(
-            "--silent"
-            "/S"
-            "/quiet"
-        )
-
-        foreach ($SilentArgument in $SilentArguments) {
-            if ($OutlineInstalled) {
-                break
-            }
-
-            try {
-                Write-Host (
-                    "Trying Outline installation argument: " +
-                    $SilentArgument
-                )
-
-                $OutlineProcess = Start-Process `
-                    -FilePath $OutlineInstaller `
-                    -ArgumentList $SilentArgument `
-                    -Wait `
-                    -PassThru `
-                    -ErrorAction Stop
-
-                Write-Host (
-                    "Outline installer exit code: " +
-                    $OutlineProcess.ExitCode
-                )
-
-                Start-Sleep -Seconds 3
-
-                if (Test-OutlineClientInstalled) {
-                    $OutlineInstalled = $true
-
-                    $OutlineExecutable = `
-                        Get-OutlineClientExecutable
-
-                    Write-Success (
-                        "Outline Client installation completed."
-                    )
-
-                    if ($null -ne $OutlineExecutable) {
-                        Write-Host (
-                            "Outline executable: " +
-                            $OutlineExecutable
-                        )
-                    }
-                }
-                elseif ($OutlineProcess.ExitCode -eq 0) {
-                    Write-Warning (
-                        "The Outline installer returned exit code 0, " +
-                        "but the installation could not be verified."
-                    )
-                }
-            }
-            catch {
-                Write-Warning (
-                    "Outline did not accept argument " +
-                    "${SilentArgument}: " +
-                    $_.Exception.Message
-                )
-            }
-        }
-
-        if (-not $OutlineInstalled) {
-            Write-Warning (
-                "Silent installation could not be confirmed. " +
-                "Opening the Outline installer."
-            )
-
-            Start-Process `
-                -FilePath $OutlineInstaller `
-                -ErrorAction Stop
-        }
+$WinGetApplications = $ApplicationDefinitions |
+    Where-Object {
+        $_.InstallType -eq "WinGet"
     }
-    catch {
-        Write-Failure (
-            "Outline Client installation failed: " +
-            $_.Exception.Message
+
+foreach ($Application in $WinGetApplications) {
+    if ([string]::IsNullOrWhiteSpace($Application.WingetId)) {
+        Write-Warning (
+            $Application.DisplayName +
+            " has no WinGet package ID."
         )
+
+        continue
     }
-}
-# ============================================================
-# 6F: Download and install Surfshark
-# ============================================================
 
-Write-Step "Step 10: Install Surfshark"
+    $Installed = Install-WingetPackage `
+        -PackageId $Application.WingetId `
+        -Source $Application.WingetSource
 
-$SurfsharkInstaller = Join-Path `
-    -Path $SoftwareDirectory `
-    -ChildPath "SurfsharkSetup.exe"
-
-$SurfsharkDownloadUrl = `
-    "https://downloads.surfshark.com/windows/latest/SurfsharkSetup.exe"
-
-$SurfsharkInstalled = `
-    Test-ApplicationInstalledByDisplayName `
-        -DisplayNamePatterns @(
-            "Surfshark"
-            "Surfshark*"
-        )
-
-if ($SurfsharkInstalled) {
-    Write-Skip "Surfshark is already installed."
-}
-else {
-    try {
-        if (-not (
-            Test-Path `
-                -LiteralPath $SoftwareDirectory `
-                -PathType Container
-        )) {
-            New-Item `
-                -Path $SoftwareDirectory `
-                -ItemType Directory `
-                -Force `
-                -ErrorAction Stop | Out-Null
-        }
-
-        Write-Host "Downloading Surfshark..."
-
-        Invoke-WebRequest `
-            -Uri $SurfsharkDownloadUrl `
-            -OutFile $SurfsharkInstaller `
-            -UseBasicParsing `
-            -ErrorAction Stop
-
-        Unblock-File `
-            -LiteralPath $SurfsharkInstaller `
-            -ErrorAction SilentlyContinue
-
-        Write-Success "Surfshark was downloaded."
-
-        Write-Host "Installing Surfshark silently..."
-
-        $SurfsharkProcess = Start-Process `
-            -FilePath $SurfsharkInstaller `
-            -ArgumentList "/exenoui /qn" `
-            -Wait `
-            -PassThru `
-            -ErrorAction Stop
-
-        Write-Host (
-            "Surfshark installer exit code: " +
-            $SurfsharkProcess.ExitCode
-        )
-
-        Start-Sleep -Seconds 5
-
-        $SurfsharkInstalled = `
-            Test-ApplicationInstalledByDisplayName `
-                -DisplayNamePatterns @(
-                    "Surfshark"
-                    "Surfshark*"
-                )
-
-        if ($SurfsharkInstalled) {
-            Write-Success "Surfshark installation completed."
-
-            if (
-                $SurfsharkProcess.ExitCode -in @(
-                    1641
-                    3010
-                )
-            ) {
-                $RestartRecommended = $true
-            }
-        }
-        else {
-            Write-Warning (
-                "Silent Surfshark installation could not be verified. " +
-                "Opening the installer interactively."
-            )
-
-            Start-Process `
-                -FilePath $SurfsharkInstaller `
-                -ErrorAction Stop
-        }
-    }
-    catch {
-        Write-Failure (
-            "Surfshark installation failed: " +
-            $_.Exception.Message
+    if (-not $Installed) {
+        Write-Warning (
+            $Application.DisplayName +
+            " installation failed."
         )
 
         if (
-            Test-Path `
-                -LiteralPath $SurfsharkInstaller `
-                -PathType Leaf
-        ) {
-            try {
-                Write-Warning (
-                    "Opening the downloaded Surfshark installer."
-                )
-
-                Start-Process `
-                    -FilePath $SurfsharkInstaller `
-                    -ErrorAction Stop
-            }
-            catch {
-                Write-Failure (
-                    "Unable to open the Surfshark installer: " +
-                    $_.Exception.Message
-                )
-            }
-        }
-    }
-}
-
-# ============================================================
-# 6G: Download and install Axure RP 10
-# ============================================================
-
-Write-Step "Step 11: Install Axure RP 10"
-
-$AxureRp10Version = "10.0.0.3929"
-$AxureRp10Build = "3929"
-
-$AxureRp10Installer = Join-Path `
-    -Path $SoftwareDirectory `
-    -ChildPath "AxureRP-Setup-$AxureRp10Build.exe"
-
-$AxureRp10DownloadUrl = (
-    "https://axure.cachefly.net/versions/10-0/" +
-    "AxureRP-Setup-$AxureRp10Build.exe"
-)
-
-$AxureRp10Installed = `
-    Test-ApplicationInstalledByDisplayName `
-        -DisplayNamePatterns @(
-            "Axure RP 10"
-            "Axure RP 10*"
-        )
-
-if ($AxureRp10Installed) {
-    Write-Skip "Axure RP 10 is already installed."
-}
-else {
-    try {
-        if (-not (
-            Test-Path `
-                -LiteralPath $SoftwareDirectory `
-                -PathType Container
-        )) {
-            New-Item `
-                -Path $SoftwareDirectory `
-                -ItemType Directory `
-                -Force `
-                -ErrorAction Stop | Out-Null
-        }
-
-        Write-Host (
-            "Downloading Axure RP $AxureRp10Version..."
-        )
-
-        Invoke-WebRequest `
-            -Uri $AxureRp10DownloadUrl `
-            -OutFile $AxureRp10Installer `
-            -UseBasicParsing `
-            -ErrorAction Stop
-
-        Unblock-File `
-            -LiteralPath $AxureRp10Installer `
-            -ErrorAction SilentlyContinue
-
-        Write-Success (
-            "Axure RP $AxureRp10Version was downloaded."
-        )
-
-        $AxureInstallLog = Join-Path `
-            -Path $env:TEMP `
-            -ChildPath "AxureRP10-Install.log"
-
-        $AxureInstallArguments = @(
-            "/passive"
-            "/qr"
-            "/norestart"
-            "/log"
-            "`"$AxureInstallLog`""
-            "LaunchAxureRp=0"
-        )
-
-        Write-Host "Installing Axure RP 10 silently..."
-
-        $AxureRp10Process = Start-Process `
-            -FilePath $AxureRp10Installer `
-            -ArgumentList $AxureInstallArguments `
-            -Wait `
-            -PassThru `
-            -ErrorAction Stop
-
-        Write-Host (
-            "Axure RP 10 installer exit code: " +
-            $AxureRp10Process.ExitCode
-        )
-
-        Start-Sleep -Seconds 5
-
-        $AxureRp10Installed = `
-            Test-ApplicationInstalledByDisplayName `
-                -DisplayNamePatterns @(
-                    "Axure RP 10"
-                    "Axure RP 10*"
-                )
-
-        if ($AxureRp10Installed) {
-            Write-Success "Axure RP 10 installation completed."
-
-            if (
-                $AxureRp10Process.ExitCode -in @(
-                    1641
-                    3010
-                )
-            ) {
-                $RestartRecommended = $true
-            }
-        }
-        else {
-            Write-Warning (
-                "Silent Axure RP 10 installation could not be " +
-                "verified. Opening the installer interactively."
+            -not [string]::IsNullOrWhiteSpace(
+                $Application.InstallerDirectDownload
             )
-
-            Start-Process `
-                -FilePath $AxureRp10Installer `
-                -ErrorAction Stop
-        }
-    }
-    catch {
-        Write-Failure (
-            "Axure RP 10 installation failed: " +
-            $_.Exception.Message
-        )
-
-        if (
-            Test-Path `
-                -LiteralPath $AxureRp10Installer `
-                -PathType Leaf
         ) {
-            try {
-                Write-Warning (
-                    "Opening the downloaded Axure RP 10 installer."
-                )
-
-                Start-Process `
-                    -FilePath $AxureRp10Installer `
-                    -ErrorAction Stop
-            }
-            catch {
-                Write-Failure (
-                    "Unable to open the Axure RP 10 installer: " +
-                    $_.Exception.Message
-                )
-            }
+            Start-Process `
+                -FilePath $Application.InstallerDirectDownload
         }
     }
 }
+
+# ============================================================
+# 6B: Install applications with MsStore
+# ============================================================
+
+$MsStoreApplications = $ApplicationDefinitions |
+    Where-Object {
+        $_.InstallType -eq "MsStore"
+    }
+
+foreach ($Application in $MsStoreApplications) {
+    if ([string]::IsNullOrWhiteSpace($Application.MsStoreId)) {
+        Write-Warning (
+            $Application.DisplayName +
+            " has no Microsoft Store ID."
+        )
+
+        continue
+    }
+
+    $Installed = Install-WingetPackage `
+        -PackageId $Application.MsStoreId `
+        -Source "msstore"
+
+    if (-not $Installed) {
+        Write-Warning (
+            "Opening " +
+            $Application.DisplayName +
+            " in Microsoft Store."
+        )
+
+        Start-Process (
+            "ms-windows-store://pdp/?ProductId=" +
+            $Application.MsStoreId
+        )
+    }
+}
+
+# ============================================================
+# 6C: Download and install Client
+# ============================================================
+
+Write-Step "Step 6C: Download and install Client"
+
+
+$Application = Get-ApplicationDefinition `
+    -DisplayName "Surfshark"
+
+$InstallerPath = Join-Path `
+    -Path $SoftwareDirectory `
+    -ChildPath $Application.InstallerFileName
+
+Invoke-WebRequest `
+    -Uri $Application.InstallerDirectDownload `
+    -OutFile $InstallerPath `
+    -UseBasicParsing `
+    -ErrorAction Stop
+
+$Process = Start-Process `
+    -FilePath $InstallerPath `
+    -ArgumentList $Application.InstallerArguments `
+    -Wait `
+    -PassThru `
+    -ErrorAction Stop
 
 # ============================================================
 # 7A: Create the Calculator desktop shortcut
@@ -3013,385 +2539,86 @@ catch {
 # ============================================================
 
 Write-Step "Configure Windows 11 Taskbar for Installed Applications"
+foreach ($Application in $ApplicationDefinitions) {
+    if (-not $Application.CreateTaskbarShortcut) {
+        continue
+    }
 
-$CommonPrograms = [Environment]::GetFolderPath(
-    "CommonPrograms"
-)
+    $ApplicationInstalled = Test-ApplicationInstalled `
+        -DisplayNamePatterns $Application.DisplayNamePatterns `
+        -ExecutablePaths $Application.ExecutablePaths `
+        -AppxNamePatterns $Application.AppxNamePatterns `
+        -ServiceNames $Application.ServiceNames
 
-$TaskbarShortcutDirectory = Join-Path `
-    -Path $CommonPrograms `
-    -ChildPath "Kuma Taskbar"
+    if (-not $ApplicationInstalled) {
+        Write-Skip (
+            $Application.DisplayName +
+            " is not installed. Taskbar pin was skipped."
+        )
 
-if (-not (Test-Path $TaskbarShortcutDirectory)) {
-    New-Item `
+        continue
+    }
+
+    if (
+        -not [string]::IsNullOrWhiteSpace(
+            $Application.AppUserModelId
+        )
+    ) {
+        $TaskbarPinEntries += (
+            '                <taskbar:UWA ' +
+            'AppUserModelID="' +
+            $Application.AppUserModelId +
+            '" />'
+        )
+
+        Write-Success (
+            $Application.DisplayName +
+            " was added to the taskbar layout."
+        )
+
+        continue
+    }
+
+    $ExecutablePath = `
+        Find-ApplicationExecutableFromDefinition `
+            -Application $Application
+
+    if ($null -eq $ExecutablePath) {
+        Write-Warning (
+            $Application.DisplayName +
+            " is installed, but its executable was not found."
+        )
+
+        continue
+    }
+
+    $ShortcutPath = Join-Path `
         -Path $TaskbarShortcutDirectory `
-        -ItemType Directory `
-        -Force | Out-Null
-}
-
-# This array contains only applications that were actually detected.
-$TaskbarPinEntries = @()
-
-# ------------------------------------------------------------
-# Detect Google Chrome
-# ------------------------------------------------------------
-
-$ChromeInstalled = Test-ApplicationInstalled `
-    -DisplayNamePatterns @(
-        "Google Chrome*"
-    ) `
-    -ExecutablePaths @(
-        "$env:ProgramFiles\Google\Chrome\Application\chrome.exe"
-        "${env:ProgramFiles(x86)}\Google\Chrome\Application\chrome.exe"
-        "$env:LOCALAPPDATA\Google\Chrome\Application\chrome.exe"
-    )
-
-if ($ChromeInstalled) {
-    $ChromePath = Find-ApplicationExecutable `
-        -FileName "chrome.exe" `
-        -CandidatePaths @(
-            "$env:ProgramFiles\Google\Chrome\Application\chrome.exe"
-            "${env:ProgramFiles(x86)}\Google\Chrome\Application\chrome.exe"
-            "$env:LOCALAPPDATA\Google\Chrome\Application\chrome.exe"
-        ) `
-        -SearchRoots @()
-
-    if ($null -ne $ChromePath) {
-        $ChromeShortcut = Join-Path `
-            -Path $TaskbarShortcutDirectory `
-            -ChildPath "Google Chrome.lnk"
-
-        $ChromeShortcutCreated = New-WindowsShortcut `
-            -TargetPath $ChromePath `
-            -ShortcutPath $ChromeShortcut `
-            -IconLocation "$ChromePath,0"
-
-        if ($ChromeShortcutCreated) {
-            $TaskbarPinEntries += (
-                '                <taskbar:DesktopApp ' +
-                'DesktopApplicationLinkPath="' +
-                '%ALLUSERSPROFILE%\Microsoft\Windows\Start Menu\' +
-                'Programs\Kuma Taskbar\Google Chrome.lnk" />'
-            )
-
-            Write-Success "Google Chrome was added to the taskbar layout."
-        }
-    }
-    else {
-        Write-Warning (
-            "Google Chrome appears to be installed, but chrome.exe " +
-            "could not be found."
-        )
-    }
-}
-else {
-    Write-Skip (
-        "Google Chrome is not installed. Taskbar pin was skipped."
-    )
-}
-
-# ------------------------------------------------------------
-# Detect Mozilla Firefox
-# ------------------------------------------------------------
-
-$FirefoxInstalled = Test-ApplicationInstalled `
-    -DisplayNamePatterns @(
-        "Mozilla Firefox*"
-    ) `
-    -ExecutablePaths @(
-        "$env:ProgramFiles\Mozilla Firefox\firefox.exe"
-        "${env:ProgramFiles(x86)}\Mozilla Firefox\firefox.exe"
-        "$env:LOCALAPPDATA\Mozilla Firefox\firefox.exe"
-    )
-
-if ($FirefoxInstalled) {
-    $FirefoxPath = Find-ApplicationExecutable `
-        -FileName "firefox.exe" `
-        -CandidatePaths @(
-            "$env:ProgramFiles\Mozilla Firefox\firefox.exe"
-            "${env:ProgramFiles(x86)}\Mozilla Firefox\firefox.exe"
-            "$env:LOCALAPPDATA\Mozilla Firefox\firefox.exe"
-        ) `
-        -SearchRoots @()
-
-    if ($null -ne $FirefoxPath) {
-        $FirefoxShortcut = Join-Path `
-            -Path $TaskbarShortcutDirectory `
-            -ChildPath "Mozilla Firefox.lnk"
-
-        $FirefoxShortcutCreated = New-WindowsShortcut `
-            -TargetPath $FirefoxPath `
-            -ShortcutPath $FirefoxShortcut `
-            -IconLocation "$FirefoxPath,0"
-
-        if ($FirefoxShortcutCreated) {
-            $TaskbarPinEntries += (
-                '                <taskbar:DesktopApp ' +
-                'DesktopApplicationLinkPath="' +
-                '%ALLUSERSPROFILE%\Microsoft\Windows\Start Menu\' +
-                'Programs\Kuma Taskbar\Mozilla Firefox.lnk" />'
-            )
-
-            Write-Success "Mozilla Firefox was added to the taskbar layout."
-        }
-    }
-    else {
-        Write-Warning (
-            "Mozilla Firefox appears to be installed, but firefox.exe " +
-            "could not be found."
-        )
-    }
-}
-else {
-    Write-Skip (
-        "Mozilla Firefox is not installed. Taskbar pin was skipped."
-    )
-}
-
-# ------------------------------------------------------------
-# Detect Microsoft Sticky Notes
-# ------------------------------------------------------------
-
-$StickyNotesInstalledForTaskbar = Test-ApplicationInstalled `
-    -AppxNamePatterns @(
-        "Microsoft.MicrosoftStickyNotes"
-    )
-
-if ($StickyNotesInstalledForTaskbar) {
-    $TaskbarPinEntries += (
-        '                <taskbar:UWA ' +
-        'AppUserModelID="' +
-        'Microsoft.MicrosoftStickyNotes_8wekyb3d8bbwe!App" />'
-    )
-
-    Write-Success "Microsoft Sticky Notes was added to the taskbar layout."
-}
-else {
-    Write-Skip (
-        "Microsoft Sticky Notes is not installed. " +
-        "Taskbar pin was skipped."
-    )
-}
-
-# ------------------------------------------------------------
-# Detect Windows Calculator
-# ------------------------------------------------------------
-
-$CalculatorInstalledForTaskbar = Test-ApplicationInstalled `
-    -ExecutablePaths @(
-        "$env:WINDIR\System32\calc.exe"
-    ) `
-    -AppxNamePatterns @(
-        "Microsoft.WindowsCalculator"
-    )
-
-if ($CalculatorInstalledForTaskbar) {
-    $TaskbarPinEntries += (
-        '                <taskbar:UWA ' +
-        'AppUserModelID="' +
-        'Microsoft.WindowsCalculator_8wekyb3d8bbwe!App" />'
-    )
-
-    Write-Success "Windows Calculator was added to the taskbar layout."
-}
-else {
-    Write-Skip (
-        "Windows Calculator is not installed. Taskbar pin was skipped."
-    )
-}
-
-# ------------------------------------------------------------
-# Detect Telegram
-# ------------------------------------------------------------
-
-$TelegramInstalled = Test-ApplicationInstalled `
-    -DisplayNamePatterns @(
-        "Telegram Desktop*"
-        "Telegram*"
-    ) `
-    -ExecutablePaths @(
-        "$env:APPDATA\Telegram Desktop\Telegram.exe"
-        "$env:LOCALAPPDATA\Programs\Telegram Desktop\Telegram.exe"
-        "$env:ProgramFiles\Telegram Desktop\Telegram.exe"
-        "${env:ProgramFiles(x86)}\Telegram Desktop\Telegram.exe"
-    ) `
-    -AppxNamePatterns @(
-        "*Telegram*"
-    )
-
-if ($TelegramInstalled) {
-    $TelegramPath = Find-ApplicationExecutable `
-        -FileName "Telegram.exe" `
-        -CandidatePaths @(
-            "$env:APPDATA\Telegram Desktop\Telegram.exe"
-            "$env:LOCALAPPDATA\Programs\Telegram Desktop\Telegram.exe"
-            "$env:ProgramFiles\Telegram Desktop\Telegram.exe"
-            "${env:ProgramFiles(x86)}\Telegram Desktop\Telegram.exe"
-        ) `
-        -SearchRoots @(
-            "$env:APPDATA\Telegram Desktop"
-            "$env:LOCALAPPDATA\Programs\Telegram Desktop"
-            "$env:ChocolateyInstall\lib\telegram"
+        -ChildPath (
+            $Application.TaskbarShortcutName +
+            ".lnk"
         )
 
-    if ($null -ne $TelegramPath) {
-        $TelegramShortcut = Join-Path `
-            -Path $TaskbarShortcutDirectory `
-            -ChildPath "Telegram.lnk"
+    $ShortcutCreated = New-WindowsShortcut `
+        -TargetPath $ExecutablePath `
+        -ShortcutPath $ShortcutPath `
+        -IconLocation "$ExecutablePath,0"
 
-        $TelegramShortcutCreated = New-WindowsShortcut `
-            -TargetPath $TelegramPath `
-            -ShortcutPath $TelegramShortcut `
-            -IconLocation "$TelegramPath,0"
+    if ($ShortcutCreated) {
+        $TaskbarPinEntries += (
+            '                <taskbar:DesktopApp ' +
+            'DesktopApplicationLinkPath="' +
+            '%ALLUSERSPROFILE%\Microsoft\Windows\Start Menu\' +
+            'Programs\Kuma Taskbar\' +
+            $Application.TaskbarShortcutName +
+            '.lnk" />'
+        )
 
-        if ($TelegramShortcutCreated) {
-            $TaskbarPinEntries += (
-                '                <taskbar:DesktopApp ' +
-                'DesktopApplicationLinkPath="' +
-                '%ALLUSERSPROFILE%\Microsoft\Windows\Start Menu\' +
-                'Programs\Kuma Taskbar\Telegram.lnk" />'
-            )
-
-            Write-Success "Telegram was added to the taskbar layout."
-        }
-    }
-    else {
-        Write-Warning (
-            "Telegram appears to be installed, but Telegram.exe " +
-            "could not be found."
+        Write-Success (
+            $Application.DisplayName +
+            " was added to the taskbar layout."
         )
     }
-}
-else {
-    Write-Skip (
-        "Telegram is not installed. Taskbar pin was skipped."
-    )
-}
-
-# ------------------------------------------------------------
-# Create taskbar layout only when applications were detected
-# ------------------------------------------------------------
-
-if ($TaskbarPinEntries.Count -eq 0) {
-    Write-Skip (
-        "No supported applications were detected. " +
-        "The taskbar layout was not changed."
-    )
-}
-else {
-    $TaskbarLayoutDirectory = Join-Path `
-        -Path $env:ProgramData `
-        -ChildPath "KumaSetup"
-
-    $TaskbarLayoutPath = Join-Path `
-        -Path $TaskbarLayoutDirectory `
-        -ChildPath "TaskbarLayoutModification.xml"
-
-    if (-not (Test-Path $TaskbarLayoutDirectory)) {
-        New-Item `
-            -Path $TaskbarLayoutDirectory `
-            -ItemType Directory `
-            -Force | Out-Null
-    }
-
-    $TaskbarPinXml = $TaskbarPinEntries -join "`r`n"
-
-    $TaskbarXml = @"
-<?xml version="1.0" encoding="utf-8"?>
-<LayoutModificationTemplate
-    xmlns="http://schemas.microsoft.com/Start/2014/LayoutModification"
-    xmlns:defaultlayout="http://schemas.microsoft.com/Start/2014/FullDefaultLayout"
-    xmlns:start="http://schemas.microsoft.com/Start/2014/StartLayout"
-    xmlns:taskbar="http://schemas.microsoft.com/Start/2014/TaskbarLayout"
-    Version="1">
-    <CustomTaskbarLayoutCollection PinListPlacement="Replace">
-        <defaultlayout:TaskbarLayout>
-            <taskbar:TaskbarPinList>
-$TaskbarPinXml
-            </taskbar:TaskbarPinList>
-        </defaultlayout:TaskbarLayout>
-    </CustomTaskbarLayoutCollection>
-</LayoutModificationTemplate>
-"@
-
-    # Write UTF-8 with BOM for Windows PowerShell 5.1.
-    $Utf8WithBom = New-Object System.Text.UTF8Encoding($true)
-
-    [System.IO.File]::WriteAllText(
-        $TaskbarLayoutPath,
-        $TaskbarXml,
-        $Utf8WithBom
-    )
-
-    $TaskbarPolicyPath = `
-        "HKCU:\Software\Policies\Microsoft\Windows\Explorer"
-
-    if (-not (Test-Path $TaskbarPolicyPath)) {
-        New-Item `
-            -Path $TaskbarPolicyPath `
-            -Force | Out-Null
-    }
-
-    New-ItemProperty `
-        -Path $TaskbarPolicyPath `
-        -Name "StartLayoutFile" `
-        -PropertyType String `
-        -Value $TaskbarLayoutPath `
-        -Force | Out-Null
-
-    New-ItemProperty `
-        -Path $TaskbarPolicyPath `
-        -Name "LockedStartLayout" `
-        -PropertyType DWord `
-        -Value 1 `
-        -Force | Out-Null
-
-    $UserShellDirectory = Join-Path `
-        -Path $env:LOCALAPPDATA `
-        -ChildPath "Microsoft\Windows\Shell"
-
-    if (-not (Test-Path $UserShellDirectory)) {
-        New-Item `
-            -Path $UserShellDirectory `
-            -ItemType Directory `
-            -Force | Out-Null
-    }
-
-    Copy-Item `
-        -Path $TaskbarLayoutPath `
-        -Destination (
-            Join-Path `
-                -Path $UserShellDirectory `
-                -ChildPath "LayoutModification.xml"
-        ) `
-        -Force
-
-    Write-Success "Taskbar layout XML was created."
-    Write-Host "Taskbar layout: $TaskbarLayoutPath"
-    Write-Host "Detected taskbar entries: $($TaskbarPinEntries.Count)"
-
-    try {
-        gpupdate.exe /target:user /force | Out-Null
-    }
-    catch {
-        Write-Warning "User Group Policy refresh failed."
-    }
-
-    Get-Process `
-        -Name "explorer" `
-        -ErrorAction SilentlyContinue |
-        Stop-Process `
-            -Force `
-            -ErrorAction SilentlyContinue
-
-    Start-Sleep -Seconds 3
-
-    Start-Process "explorer.exe"
-
-    Write-Warning (
-        "If the taskbar is not updated immediately, " +
-        "sign out and sign in again."
-    )
 }
 
 # ============================================================
