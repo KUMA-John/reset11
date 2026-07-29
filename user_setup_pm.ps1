@@ -31,6 +31,1064 @@ $ErrorActionPreference = "Stop"
 $ProgressPreference = "SilentlyContinue"
 
 # ============================================================
+# Application definitions
+#
+# The application processing order is exactly the array order.
+#
+# InstallType:
+#   ChocolateyFirst
+#   ChocolateyRemaining
+#   WinGet
+#   DirectDownload
+#   MsStore
+#   BuiltIn
+#   DetectOnly
+#
+# StartupAction:
+#   $true  = explicitly enable startup
+#   $false = explicitly disable startup
+#   $null  = do not modify startup
+# ============================================================
+
+$ApplicationDefinitions = @(
+
+    # ========================================================
+    # Chocolatey first group
+    # ========================================================
+
+    [pscustomobject]@{
+        DisplayName               = "Google Chrome"
+        DisplayNamePatterns       = @(
+            "Google Chrome*"
+        )
+        ExecutablePaths           = @(
+            "$env:ProgramFiles\Google\Chrome\Application\chrome.exe"
+            "${env:ProgramFiles(x86)}\Google\Chrome\Application\chrome.exe"
+            "$env:LOCALAPPDATA\Google\Chrome\Application\chrome.exe"
+        )
+        ExecutableName            = "chrome.exe"
+        SearchRoots               = @(
+            "$env:ProgramFiles\Google\Chrome"
+            "${env:ProgramFiles(x86)}\Google\Chrome"
+            "$env:LOCALAPPDATA\Google\Chrome"
+        )
+
+        InstallType               = "ChocolateyFirst"
+        ChocoName                 = "googlechrome"
+        WingetId                 = $null
+        WingetSource             = $null
+        MsStoreId                = $null
+        InstallerDirectDownload  = $null
+        InstallerFileName        = $null
+        InstallerArguments       = @()
+
+        CreateDesktopShortcut     = $false
+        DesktopShortcutName       = "Google Chrome"
+
+        CreateTaskbarShortcut     = $true
+        TaskbarShortcutName       = "Google Chrome"
+
+        StartupAction             = $null
+        StartupNames              = @(
+            "Google Chrome"
+            "Chrome"
+        )
+        ProcessNames              = @(
+            "chrome"
+        )
+        ServiceNames              = @()
+        AppxNamePatterns          = @()
+    }
+
+    [pscustomobject]@{
+        DisplayName               = "Mozilla Firefox"
+        DisplayNamePatterns       = @(
+            "Mozilla Firefox*"
+        )
+        ExecutablePaths           = @(
+            "$env:ProgramFiles\Mozilla Firefox\firefox.exe"
+            "${env:ProgramFiles(x86)}\Mozilla Firefox\firefox.exe"
+            "$env:LOCALAPPDATA\Mozilla Firefox\firefox.exe"
+        )
+        ExecutableName            = "firefox.exe"
+        SearchRoots               = @(
+            "$env:ProgramFiles\Mozilla Firefox"
+            "${env:ProgramFiles(x86)}\Mozilla Firefox"
+            "$env:LOCALAPPDATA\Mozilla Firefox"
+        )
+
+        InstallType               = "ChocolateyFirst"
+        ChocoName                 = "firefox"
+        WingetId                  = $null
+        WingetSource              = $null
+        MsStoreId                 = $null
+        InstallerDirectDownload  = $null
+        InstallerFileName        = $null
+        InstallerArguments       = @()
+
+        CreateDesktopShortcut     = $false
+        DesktopShortcutName       = "Mozilla Firefox"
+
+        CreateTaskbarShortcut     = $true
+        TaskbarShortcutName       = "Mozilla Firefox"
+
+        StartupAction             = $null
+        StartupNames              = @(
+            "Mozilla Firefox"
+            "Firefox"
+        )
+        ProcessNames              = @(
+            "firefox"
+        )
+        ServiceNames              = @()
+        AppxNamePatterns          = @()
+    }
+
+    [pscustomobject]@{
+        DisplayName               = "7-Zip"
+        DisplayNamePatterns       = @(
+            "7-Zip*"
+        )
+        ExecutablePaths           = @(
+            "$env:ProgramFiles\7-Zip\7zFM.exe"
+            "${env:ProgramFiles(x86)}\7-Zip\7zFM.exe"
+        )
+        ExecutableName            = "7zFM.exe"
+        SearchRoots               = @(
+            "$env:ProgramFiles\7-Zip"
+            "${env:ProgramFiles(x86)}\7-Zip"
+        )
+
+        InstallType               = "ChocolateyFirst"
+        ChocoName                 = "7zip.install"
+        WingetId                  = $null
+        WingetSource              = $null
+        MsStoreId                 = $null
+        InstallerDirectDownload  = $null
+        InstallerFileName        = $null
+        InstallerArguments       = @()
+
+        CreateDesktopShortcut     = $false
+        DesktopShortcutName       = "7-Zip"
+
+        CreateTaskbarShortcut     = $false
+        TaskbarShortcutName       = "7-Zip"
+
+        StartupAction             = $null
+        StartupNames              = @()
+        ProcessNames              = @()
+        ServiceNames              = @()
+        AppxNamePatterns          = @()
+    }
+
+    # ========================================================
+    # Chocolatey remaining group
+    # ========================================================
+
+    [pscustomobject]@{
+        DisplayName               = "Microsoft Visual C++ Redistributable 2015"
+        DisplayNamePatterns       = @(
+            "Microsoft Visual C++ 2015*"
+            "Microsoft Visual C++ 2015-2022*"
+        )
+        ExecutablePaths           = @()
+        ExecutableName            = $null
+        SearchRoots               = @()
+
+        InstallType               = "ChocolateyRemaining"
+        ChocoName                 = "vcredist2015"
+        WingetId                  = $null
+        WingetSource              = $null
+        MsStoreId                 = $null
+        InstallerDirectDownload  = $null
+        InstallerFileName        = $null
+        InstallerArguments       = @()
+
+        CreateDesktopShortcut     = $false
+        DesktopShortcutName       = $null
+
+        CreateTaskbarShortcut     = $false
+        TaskbarShortcutName       = $null
+
+        StartupAction             = $null
+        StartupNames              = @()
+        ProcessNames              = @()
+        ServiceNames              = @()
+        AppxNamePatterns          = @()
+    }
+
+    [pscustomobject]@{
+        DisplayName               = "Microsoft .NET Framework"
+        DisplayNamePatterns       = @(
+            "Microsoft .NET Framework*"
+        )
+        ExecutablePaths           = @()
+        ExecutableName            = $null
+        SearchRoots               = @()
+
+        InstallType               = "ChocolateyRemaining"
+        ChocoName                 = "dotnetfx"
+        WingetId                  = $null
+        WingetSource              = $null
+        MsStoreId                 = $null
+        InstallerDirectDownload  = $null
+        InstallerFileName        = $null
+        InstallerArguments       = @()
+
+        CreateDesktopShortcut     = $false
+        DesktopShortcutName       = $null
+
+        CreateTaskbarShortcut     = $false
+        TaskbarShortcutName       = $null
+
+        StartupAction             = $null
+        StartupNames              = @()
+        ProcessNames              = @()
+        ServiceNames              = @()
+        AppxNamePatterns          = @()
+    }
+
+    [pscustomobject]@{
+        DisplayName               = "Microsoft .NET 8 Runtime"
+        DisplayNamePatterns       = @(
+            "Microsoft .NET Runtime - 8*"
+            "Microsoft .NET Runtime 8*"
+        )
+        ExecutablePaths           = @(
+            "$env:ProgramFiles\dotnet\dotnet.exe"
+            "${env:ProgramFiles(x86)}\dotnet\dotnet.exe"
+        )
+        ExecutableName            = "dotnet.exe"
+        SearchRoots               = @(
+            "$env:ProgramFiles\dotnet"
+            "${env:ProgramFiles(x86)}\dotnet"
+        )
+
+        InstallType               = "ChocolateyRemaining"
+        ChocoName                 = "dotnet-8.0-runtime"
+        WingetId                  = $null
+        WingetSource              = $null
+        MsStoreId                 = $null
+        InstallerDirectDownload  = $null
+        InstallerFileName        = $null
+        InstallerArguments       = @()
+
+        CreateDesktopShortcut     = $false
+        DesktopShortcutName       = $null
+
+        CreateTaskbarShortcut     = $false
+        TaskbarShortcutName       = $null
+
+        StartupAction             = $null
+        StartupNames              = @()
+        ProcessNames              = @()
+        ServiceNames              = @()
+        AppxNamePatterns          = @()
+    }
+
+    [pscustomobject]@{
+        DisplayName               = "Microsoft .NET 8 Desktop Runtime"
+        DisplayNamePatterns       = @(
+            "Microsoft Windows Desktop Runtime - 8*"
+            "Microsoft .NET Desktop Runtime 8*"
+        )
+        ExecutablePaths           = @(
+            "$env:ProgramFiles\dotnet\dotnet.exe"
+            "${env:ProgramFiles(x86)}\dotnet\dotnet.exe"
+        )
+        ExecutableName            = "dotnet.exe"
+        SearchRoots               = @(
+            "$env:ProgramFiles\dotnet"
+            "${env:ProgramFiles(x86)}\dotnet"
+        )
+
+        InstallType               = "ChocolateyRemaining"
+        ChocoName                 = "dotnet-8.0-desktopruntime"
+        WingetId                  = $null
+        WingetSource              = $null
+        MsStoreId                 = $null
+        InstallerDirectDownload  = $null
+        InstallerFileName        = $null
+        InstallerArguments       = @()
+
+        CreateDesktopShortcut     = $false
+        DesktopShortcutName       = $null
+
+        CreateTaskbarShortcut     = $false
+        TaskbarShortcutName       = $null
+
+        StartupAction             = $null
+        StartupNames              = @()
+        ProcessNames              = @()
+        ServiceNames              = @()
+        AppxNamePatterns          = @()
+    }
+
+    [pscustomobject]@{
+        DisplayName               = "Telegram Desktop"
+        DisplayNamePatterns       = @(
+            "Telegram Desktop*"
+            "Telegram*"
+        )
+        ExecutablePaths           = @(
+            "$env:APPDATA\Telegram Desktop\Telegram.exe"
+            "$env:LOCALAPPDATA\Programs\Telegram Desktop\Telegram.exe"
+            "$env:ProgramFiles\Telegram Desktop\Telegram.exe"
+            "${env:ProgramFiles(x86)}\Telegram Desktop\Telegram.exe"
+        )
+        ExecutableName            = "Telegram.exe"
+        SearchRoots               = @(
+            "$env:APPDATA\Telegram Desktop"
+            "$env:LOCALAPPDATA\Programs"
+            "$env:ProgramFiles\Telegram Desktop"
+            "${env:ProgramFiles(x86)}\Telegram Desktop"
+            "$env:ChocolateyInstall\lib\telegram"
+        )
+
+        InstallType               = "ChocolateyRemaining"
+        ChocoName                 = "telegram"
+        WingetId                  = $null
+        WingetSource              = $null
+        MsStoreId                 = $null
+        InstallerDirectDownload  = $null
+        InstallerFileName        = $null
+        InstallerArguments       = @()
+
+        CreateDesktopShortcut     = $false
+        DesktopShortcutName       = "Telegram"
+
+        CreateTaskbarShortcut     = $true
+        TaskbarShortcutName       = "Telegram"
+
+        StartupAction             = $null
+        StartupNames              = @(
+            "Telegram"
+            "Telegram Desktop"
+        )
+        ProcessNames              = @(
+            "Telegram"
+        )
+        ServiceNames              = @()
+        AppxNamePatterns          = @(
+            "*Telegram*"
+        )
+    }
+
+    [pscustomobject]@{
+        DisplayName               = "Element Desktop"
+        DisplayNamePatterns       = @(
+            "Element*"
+            "Element Desktop*"
+        )
+        ExecutablePaths           = @(
+            "$env:LOCALAPPDATA\element-desktop\Element.exe"
+            "$env:LOCALAPPDATA\Programs\Element\Element.exe"
+            "$env:ProgramFiles\Element\Element.exe"
+            "${env:ProgramFiles(x86)}\Element\Element.exe"
+        )
+        ExecutableName            = "Element.exe"
+        SearchRoots               = @(
+            "$env:LOCALAPPDATA\element-desktop"
+            "$env:LOCALAPPDATA\Programs"
+            "$env:ProgramFiles\Element"
+            "${env:ProgramFiles(x86)}\Element"
+            "$env:ChocolateyInstall\lib\element-desktop"
+        )
+
+        InstallType               = "ChocolateyRemaining"
+        ChocoName                 = "element-desktop"
+        WingetId                  = $null
+        WingetSource              = $null
+        MsStoreId                 = $null
+        InstallerDirectDownload  = $null
+        InstallerFileName        = $null
+        InstallerArguments       = @()
+
+        CreateDesktopShortcut     = $false
+        DesktopShortcutName       = "Element"
+
+        CreateTaskbarShortcut     = $false
+        TaskbarShortcutName       = "Element"
+
+        StartupAction             = $null
+        StartupNames              = @(
+            "Element"
+            "Element Desktop"
+        )
+        ProcessNames              = @(
+            "Element"
+        )
+        ServiceNames              = @()
+        AppxNamePatterns          = @()
+    }
+
+    [pscustomobject]@{
+        DisplayName               = "NirCmd"
+        DisplayNamePatterns       = @(
+            "NirCmd*"
+            "NirSoft NirCmd*"
+        )
+        ExecutablePaths           = @(
+            "$env:ChocolateyInstall\bin\nircmd.exe"
+            "$env:ChocolateyInstall\lib\nircmd\tools\nircmd.exe"
+            "$env:WINDIR\nircmd.exe"
+        )
+        ExecutableName            = "nircmd.exe"
+        SearchRoots               = @(
+            "$env:ChocolateyInstall\bin"
+            "$env:ChocolateyInstall\lib\nircmd"
+        )
+
+        InstallType               = "ChocolateyRemaining"
+        ChocoName                 = "nircmd"
+        WingetId                  = $null
+        WingetSource              = $null
+        MsStoreId                 = $null
+        InstallerDirectDownload  = $null
+        InstallerFileName        = $null
+        InstallerArguments       = @()
+
+        CreateDesktopShortcut     = $false
+        DesktopShortcutName       = $null
+
+        CreateTaskbarShortcut     = $false
+        TaskbarShortcutName       = $null
+
+        StartupAction             = $null
+        StartupNames              = @()
+        ProcessNames              = @()
+        ServiceNames              = @()
+        AppxNamePatterns          = @()
+    }
+
+    [pscustomobject]@{
+        DisplayName               = "WireGuard"
+        DisplayNamePatterns       = @(
+            "WireGuard*"
+        )
+        ExecutablePaths           = @(
+            "$env:ProgramFiles\WireGuard\wireguard.exe"
+            "${env:ProgramFiles(x86)}\WireGuard\wireguard.exe"
+        )
+        ExecutableName            = "wireguard.exe"
+        SearchRoots               = @(
+            "$env:ProgramFiles\WireGuard"
+            "${env:ProgramFiles(x86)}\WireGuard"
+        )
+
+        InstallType               = "ChocolateyRemaining"
+        ChocoName                 = "wireguard"
+        WingetId                  = $null
+        WingetSource              = $null
+        MsStoreId                 = $null
+        InstallerDirectDownload  = $null
+        InstallerFileName        = $null
+        InstallerArguments       = @()
+
+        CreateDesktopShortcut     = $false
+        DesktopShortcutName       = "WireGuard"
+
+        CreateTaskbarShortcut     = $false
+        TaskbarShortcutName       = "WireGuard"
+
+        StartupAction             = $null
+        StartupNames              = @(
+            "WireGuard"
+        )
+        ProcessNames              = @(
+            "wireguard"
+        )
+        ServiceNames              = @(
+            "WireGuardManager"
+        )
+        AppxNamePatterns          = @()
+    }
+
+    # ========================================================
+    # WinGet applications
+    # ========================================================
+
+    [pscustomobject]@{
+        DisplayName               = "AnyDesk"
+        DisplayNamePatterns       = @(
+            "AnyDesk*"
+        )
+        ExecutablePaths           = @(
+            "$env:ProgramFiles\AnyDesk\AnyDesk.exe"
+            "${env:ProgramFiles(x86)}\AnyDesk\AnyDesk.exe"
+            "$env:LOCALAPPDATA\AnyDesk\AnyDesk.exe"
+            "$env:APPDATA\AnyDesk\AnyDesk.exe"
+        )
+        ExecutableName            = "AnyDesk.exe"
+        SearchRoots               = @(
+            "$env:ProgramFiles\AnyDesk"
+            "${env:ProgramFiles(x86)}\AnyDesk"
+            "$env:LOCALAPPDATA\AnyDesk"
+            "$env:APPDATA\AnyDesk"
+        )
+
+        InstallType               = "WinGet"
+        ChocoName                 = $null
+        WingetId                  = "AnyDesk.AnyDesk"
+        WingetSource              = "winget"
+        MsStoreId                 = $null
+        InstallerDirectDownload  = $null
+        InstallerFileName        = $null
+        InstallerArguments       = @()
+
+        CreateDesktopShortcut     = $false
+        DesktopShortcutName       = "AnyDesk"
+
+        CreateTaskbarShortcut     = $false
+        TaskbarShortcutName       = "AnyDesk"
+
+        StartupAction             = $false
+        StartupNames              = @(
+            "AnyDesk"
+            "AnyDesk.exe"
+        )
+        ProcessNames              = @(
+            "AnyDesk"
+        )
+        ServiceNames              = @(
+            "AnyDesk"
+        )
+        AppxNamePatterns          = @()
+    }
+
+    [pscustomobject]@{
+        DisplayName               = "Google Japanese Input"
+        DisplayNamePatterns       = @(
+            "Google Japanese Input*"
+            "Google 日本語入力*"
+        )
+        ExecutablePaths           = @(
+            "$env:ProgramFiles\Google\Google Japanese Input\GoogleIMEJaTool.exe"
+            "${env:ProgramFiles(x86)}\Google\Google Japanese Input\GoogleIMEJaTool.exe"
+        )
+        ExecutableName            = "GoogleIMEJaTool.exe"
+        SearchRoots               = @(
+            "$env:ProgramFiles\Google"
+            "${env:ProgramFiles(x86)}\Google"
+        )
+
+        InstallType               = "WinGet"
+        ChocoName                 = $null
+        WingetId                  = "Google.JapaneseIME"
+        WingetSource              = "winget"
+        MsStoreId                 = $null
+
+        # This URL is used as a fallback page if WinGet fails.
+        InstallerDirectDownload  = "https://www.google.co.jp/ime/"
+        InstallerFileName        = $null
+        InstallerArguments       = @()
+
+        CreateDesktopShortcut     = $false
+        DesktopShortcutName       = $null
+
+        CreateTaskbarShortcut     = $false
+        TaskbarShortcutName       = $null
+
+        StartupAction             = $null
+        StartupNames              = @()
+        ProcessNames              = @()
+        ServiceNames              = @()
+        AppxNamePatterns          = @()
+    }
+
+    # ========================================================
+    # Microsoft Store applications
+    # ========================================================
+
+    [pscustomobject]@{
+        DisplayName               = "Microsoft Sticky Notes"
+        DisplayNamePatterns       = @(
+            "Microsoft Sticky Notes*"
+        )
+        ExecutablePaths           = @()
+        ExecutableName            = $null
+        SearchRoots               = @()
+
+        InstallType               = "MsStore"
+        ChocoName                 = $null
+        WingetId                  = $null
+        WingetSource              = "msstore"
+        MsStoreId                 = "9NBLGGH4QGHW"
+        InstallerDirectDownload  = $null
+        InstallerFileName        = $null
+        InstallerArguments       = @()
+
+        CreateDesktopShortcut     = $false
+        DesktopShortcutName       = "Sticky Notes"
+
+        CreateTaskbarShortcut     = $true
+        TaskbarShortcutName       = "Sticky Notes"
+
+        StartupAction             = $null
+        StartupNames              = @()
+        ProcessNames              = @(
+            "Microsoft.Notes"
+        )
+        ServiceNames              = @()
+        AppxNamePatterns          = @(
+            "Microsoft.MicrosoftStickyNotes"
+        )
+    }
+
+    # ========================================================
+    # Chocolatey application installed outside the two batches
+    # ========================================================
+
+    [pscustomobject]@{
+        DisplayName               = "Microsoft Teams"
+        DisplayNamePatterns       = @(
+            "Microsoft Teams*"
+            "Teams Machine-Wide Installer*"
+        )
+        ExecutablePaths           = @(
+            "$env:LOCALAPPDATA\Microsoft\Teams\current\Teams.exe"
+            "$env:LOCALAPPDATA\Microsoft\WindowsApps\ms-teams.exe"
+        )
+        ExecutableName            = "ms-teams.exe"
+        SearchRoots               = @(
+            "$env:LOCALAPPDATA\Microsoft"
+            "$env:ProgramFiles\WindowsApps"
+        )
+
+        InstallType               = "ChocolateyRemaining"
+        ChocoName                 = "microsoft-teams-new-bootstrapper"
+        WingetId                  = $null
+        WingetSource              = $null
+        MsStoreId                 = $null
+        InstallerDirectDownload  = $null
+        InstallerFileName        = $null
+        InstallerArguments       = @()
+
+        CreateDesktopShortcut     = $false
+        DesktopShortcutName       = "Microsoft Teams"
+
+        CreateTaskbarShortcut     = $false
+        TaskbarShortcutName       = "Microsoft Teams"
+
+        StartupAction             = $false
+        StartupNames              = @(
+            "Teams"
+            "Microsoft Teams"
+            "MSTeams"
+            "com.squirrel.Teams.Teams"
+        )
+        ProcessNames              = @(
+            "ms-teams"
+            "Teams"
+        )
+        ServiceNames              = @()
+        AppxNamePatterns          = @(
+            "MSTeams"
+            "MicrosoftTeams"
+        )
+    }
+
+    # ========================================================
+    # Direct download applications
+    # ========================================================
+
+    [pscustomobject]@{
+        DisplayName               = "Outline Client"
+        DisplayNamePatterns       = @(
+            "Outline"
+            "Outline Client"
+            "Outline Client*"
+        )
+        ExecutablePaths           = @(
+            "$env:LOCALAPPDATA\Programs\Outline Client\Outline Client.exe"
+            "$env:LOCALAPPDATA\Programs\Outline\Outline.exe"
+            "$env:LOCALAPPDATA\Outline\Outline.exe"
+            "$env:LOCALAPPDATA\Programs\outline-client\Outline Client.exe"
+            "$env:LOCALAPPDATA\Programs\outline-client\Outline.exe"
+            "$env:ProgramFiles\Outline Client\Outline Client.exe"
+            "$env:ProgramFiles\Outline\Outline.exe"
+            "${env:ProgramFiles(x86)}\Outline Client\Outline Client.exe"
+            "${env:ProgramFiles(x86)}\Outline\Outline.exe"
+        )
+        ExecutableName            = "Outline Client.exe"
+        SearchRoots               = @(
+            "$env:LOCALAPPDATA\Programs"
+            "$env:LOCALAPPDATA"
+            "$env:ProgramFiles"
+            "${env:ProgramFiles(x86)}"
+        )
+
+        InstallType               = "DirectDownload"
+        ChocoName                 = $null
+        WingetId                  = $null
+        WingetSource              = $null
+        MsStoreId                 = $null
+        InstallerDirectDownload  = (
+            "https://s3.amazonaws.com/" +
+            "outline-releases/client/windows/stable/" +
+            "Outline-Client.exe"
+        )
+        InstallerFileName        = "Outline-Client.exe"
+        InstallerArguments       = @(
+            "--silent"
+            "/S"
+            "/quiet"
+        )
+
+        CreateDesktopShortcut     = $false
+        DesktopShortcutName       = "Outline Client"
+
+        CreateTaskbarShortcut     = $false
+        TaskbarShortcutName       = "Outline Client"
+
+        StartupAction             = $null
+        StartupNames              = @(
+            "Outline"
+            "Outline Client"
+        )
+        ProcessNames              = @(
+            "Outline"
+            "Outline Client"
+        )
+        ServiceNames              = @()
+        AppxNamePatterns          = @()
+    }
+
+    [pscustomobject]@{
+        DisplayName               = "Surfshark"
+        DisplayNamePatterns       = @(
+            "Surfshark"
+            "Surfshark*"
+        )
+        ExecutablePaths           = @(
+            "$env:ProgramFiles\Surfshark\Surfshark.exe"
+            "${env:ProgramFiles(x86)}\Surfshark\Surfshark.exe"
+            "$env:LOCALAPPDATA\Programs\Surfshark\Surfshark.exe"
+        )
+        ExecutableName            = "Surfshark.exe"
+        SearchRoots               = @(
+            "$env:ProgramFiles\Surfshark"
+            "${env:ProgramFiles(x86)}\Surfshark"
+            "$env:LOCALAPPDATA\Programs\Surfshark"
+        )
+
+        InstallType               = "DirectDownload"
+        ChocoName                 = $null
+        WingetId                  = $null
+        WingetSource              = $null
+        MsStoreId                 = $null
+        InstallerDirectDownload  = (
+            "https://downloads.surfshark.com/" +
+            "windows/latest/SurfsharkSetup.exe"
+        )
+        InstallerFileName        = "SurfsharkSetup.exe"
+        InstallerArguments       = @(
+            "/exenoui"
+            "/qn"
+        )
+
+        CreateDesktopShortcut     = $false
+        DesktopShortcutName       = "Surfshark"
+
+        CreateTaskbarShortcut     = $false
+        TaskbarShortcutName       = "Surfshark"
+
+        StartupAction             = $null
+        StartupNames              = @(
+            "Surfshark"
+        )
+        ProcessNames              = @(
+            "Surfshark"
+        )
+        ServiceNames              = @()
+        AppxNamePatterns          = @()
+    }
+
+    [pscustomobject]@{
+        DisplayName               = "Axure RP 10"
+        DisplayNamePatterns       = @(
+            "Axure RP 10"
+            "Axure RP 10*"
+        )
+        ExecutablePaths           = @(
+            "$env:ProgramFiles\Axure\Axure RP 10\AxureRP10.exe"
+            "${env:ProgramFiles(x86)}\Axure\Axure RP 10\AxureRP10.exe"
+        )
+        ExecutableName            = "AxureRP10.exe"
+        SearchRoots               = @(
+            "$env:ProgramFiles\Axure"
+            "${env:ProgramFiles(x86)}\Axure"
+        )
+
+        InstallType               = "DirectDownload"
+        ChocoName                 = $null
+        WingetId                  = $null
+        WingetSource              = $null
+        MsStoreId                 = $null
+        InstallerDirectDownload  = (
+            "https://axure.cachefly.net/versions/10-0/" +
+            "AxureRP-Setup-3929.exe"
+        )
+        InstallerFileName        = "AxureRP-Setup-3929.exe"
+        InstallerArguments       = @(
+            "/passive"
+            "/qr"
+            "/norestart"
+            "LaunchAxureRp=0"
+        )
+
+        CreateDesktopShortcut     = $false
+        DesktopShortcutName       = "Axure RP 10"
+
+        CreateTaskbarShortcut     = $false
+        TaskbarShortcutName       = "Axure RP 10"
+
+        StartupAction             = $null
+        StartupNames              = @(
+            "Axure RP 10"
+        )
+        ProcessNames              = @(
+            "AxureRP10"
+        )
+        ServiceNames              = @()
+        AppxNamePatterns          = @()
+    }
+
+    # ========================================================
+    # Built-in Windows applications
+    # ========================================================
+
+    [pscustomobject]@{
+        DisplayName               = "Calculator"
+        DisplayNamePatterns       = @(
+            "Windows Calculator*"
+        )
+        ExecutablePaths           = @(
+            "$env:WINDIR\System32\calc.exe"
+        )
+        ExecutableName            = "calc.exe"
+        SearchRoots               = @(
+            "$env:WINDIR\System32"
+        )
+
+        InstallType               = "BuiltIn"
+        ChocoName                 = $null
+        WingetId                  = $null
+        WingetSource              = $null
+        MsStoreId                 = $null
+        InstallerDirectDownload  = $null
+        InstallerFileName        = $null
+        InstallerArguments       = @()
+
+        CreateDesktopShortcut     = $true
+        DesktopShortcutName       = "Calculator"
+
+        CreateTaskbarShortcut     = $true
+        TaskbarShortcutName       = "Calculator"
+
+        StartupAction             = $null
+        StartupNames              = @()
+        ProcessNames              = @(
+            "CalculatorApp"
+            "Calculator"
+        )
+        ServiceNames              = @()
+        AppxNamePatterns          = @(
+            "Microsoft.WindowsCalculator"
+        )
+    }
+
+    [pscustomobject]@{
+        DisplayName               = "Remote Desktop Connection"
+        DisplayNamePatterns       = @()
+        ExecutablePaths           = @(
+            "$env:WINDIR\System32\mstsc.exe"
+        )
+        ExecutableName            = "mstsc.exe"
+        SearchRoots               = @(
+            "$env:WINDIR\System32"
+        )
+
+        InstallType               = "BuiltIn"
+        ChocoName                 = $null
+        WingetId                  = $null
+        WingetSource              = $null
+        MsStoreId                 = $null
+        InstallerDirectDownload  = $null
+        InstallerFileName        = $null
+        InstallerArguments       = @()
+
+        CreateDesktopShortcut     = $true
+        DesktopShortcutName       = "Remote Desktop Connection"
+
+        CreateTaskbarShortcut     = $false
+        TaskbarShortcutName       = "Remote Desktop Connection"
+
+        StartupAction             = $null
+        StartupNames              = @()
+        ProcessNames              = @(
+            "mstsc"
+        )
+        ServiceNames              = @()
+        AppxNamePatterns          = @()
+    }
+
+    # ========================================================
+    # Detect-only applications
+    #
+    # These applications are not installed by this array.
+    # They are configured only when already installed.
+    # ========================================================
+
+    [pscustomobject]@{
+        DisplayName               = "Microsoft OneDrive"
+        DisplayNamePatterns       = @(
+            "Microsoft OneDrive*"
+        )
+        ExecutablePaths           = @(
+            "$env:LOCALAPPDATA\Microsoft\OneDrive\OneDrive.exe"
+            "$env:ProgramFiles\Microsoft OneDrive\OneDrive.exe"
+            "${env:ProgramFiles(x86)}\Microsoft OneDrive\OneDrive.exe"
+            "$env:SystemRoot\System32\OneDriveSetup.exe"
+            "$env:SystemRoot\SysWOW64\OneDriveSetup.exe"
+        )
+        ExecutableName            = "OneDrive.exe"
+        SearchRoots               = @(
+            "$env:LOCALAPPDATA\Microsoft\OneDrive"
+            "$env:ProgramFiles\Microsoft OneDrive"
+            "${env:ProgramFiles(x86)}\Microsoft OneDrive"
+        )
+
+        InstallType               = "DetectOnly"
+        ChocoName                 = $null
+        WingetId                  = $null
+        WingetSource              = $null
+        MsStoreId                 = $null
+        InstallerDirectDownload  = $null
+        InstallerFileName        = $null
+        InstallerArguments       = @()
+
+        CreateDesktopShortcut     = $false
+        DesktopShortcutName       = "Microsoft OneDrive"
+
+        CreateTaskbarShortcut     = $false
+        TaskbarShortcutName       = "Microsoft OneDrive"
+
+        StartupAction             = $false
+        StartupNames              = @(
+            "OneDrive"
+            "Microsoft OneDrive"
+        )
+        ProcessNames              = @(
+            "OneDrive"
+        )
+        ServiceNames              = @()
+        AppxNamePatterns          = @()
+    }
+
+    [pscustomobject]@{
+        DisplayName               = "Slack"
+        DisplayNamePatterns       = @(
+            "Slack*"
+        )
+        ExecutablePaths           = @(
+            "$env:LOCALAPPDATA\slack\slack.exe"
+            "$env:LOCALAPPDATA\Programs\slack\slack.exe"
+            "$env:ProgramFiles\Slack\slack.exe"
+            "${env:ProgramFiles(x86)}\Slack\slack.exe"
+        )
+        ExecutableName            = "slack.exe"
+        SearchRoots               = @(
+            "$env:LOCALAPPDATA\slack"
+            "$env:LOCALAPPDATA\Programs"
+            "$env:ProgramFiles\Slack"
+            "${env:ProgramFiles(x86)}\Slack"
+            "$env:ChocolateyInstall\lib\slack"
+        )
+
+        InstallType               = "DetectOnly"
+        ChocoName                 = $null
+        WingetId                  = $null
+        WingetSource              = $null
+        MsStoreId                 = $null
+        InstallerDirectDownload  = $null
+        InstallerFileName        = $null
+        InstallerArguments       = @()
+
+        CreateDesktopShortcut     = $false
+        DesktopShortcutName       = "Slack"
+
+        CreateTaskbarShortcut     = $false
+        TaskbarShortcutName       = "Slack"
+
+        StartupAction             = $true
+        StartupNames              = @(
+            "Slack"
+        )
+        ProcessNames              = @(
+            "slack"
+        )
+        ServiceNames              = @()
+        AppxNamePatterns          = @(
+            "*Slack*"
+        )
+    }
+
+    [pscustomobject]@{
+        DisplayName               = "Snipaste"
+        DisplayNamePatterns       = @(
+            "Snipaste*"
+        )
+        ExecutablePaths           = @(
+            "C:\tools\snipaste\Snipaste.exe"
+            "C:\tools\snipaste\snipaste.exe"
+            "$env:ChocolateyInstall\bin\Snipaste.exe"
+            "$env:ProgramFiles\Snipaste\Snipaste.exe"
+            "${env:ProgramFiles(x86)}\Snipaste\Snipaste.exe"
+            "$env:LOCALAPPDATA\Snipaste\Snipaste.exe"
+            "$env:ChocolateyInstall\lib\snipaste\tools\Snipaste.exe"
+        )
+        ExecutableName            = "Snipaste.exe"
+        SearchRoots               = @(
+            "C:\tools"
+            "$env:ChocolateyInstall\lib"
+            "$env:LOCALAPPDATA"
+            "$env:ProgramFiles"
+            "${env:ProgramFiles(x86)}"
+        )
+
+        InstallType               = "DetectOnly"
+        ChocoName                 = $null
+        WingetId                  = $null
+        WingetSource              = $null
+        MsStoreId                 = $null
+        InstallerDirectDownload  = $null
+        InstallerFileName        = $null
+        InstallerArguments       = @()
+
+        CreateDesktopShortcut     = $false
+        DesktopShortcutName       = "Snipaste"
+
+        CreateTaskbarShortcut     = $false
+        TaskbarShortcutName       = "Snipaste"
+
+        StartupAction             = $true
+        StartupNames              = @(
+            "Snipaste"
+            "Snipaste.exe"
+        )
+        ProcessNames              = @(
+            "Snipaste"
+        )
+        ServiceNames              = @()
+        AppxNamePatterns          = @(
+            "*Snipaste*"
+        )
+    }
+)
+
+
+# ============================================================
 # 0A: Common functions
 # ============================================================
 
@@ -877,6 +1935,110 @@ function Test-IsDellComputer {
     }
 }
 
+function Find-ApplicationExecutableFromDefinition {
+    param (
+        [Parameter(Mandatory)]
+        [psobject]$Application
+    )
+
+    foreach ($ExecutablePath in $Application.ExecutablePaths) {
+        if (
+            -not [string]::IsNullOrWhiteSpace($ExecutablePath) -and
+            (
+                Test-Path `
+                    -LiteralPath $ExecutablePath `
+                    -PathType Leaf
+            )
+        ) {
+            return $ExecutablePath
+        }
+    }
+
+    if (
+        [string]::IsNullOrWhiteSpace(
+            $Application.ExecutableName
+        )
+    ) {
+        return $null
+    }
+
+    foreach ($SearchRoot in $Application.SearchRoots) {
+        if (
+            [string]::IsNullOrWhiteSpace($SearchRoot) -or
+            -not (
+                Test-Path `
+                    -LiteralPath $SearchRoot `
+                    -PathType Container
+            )
+        ) {
+            continue
+        }
+
+        $Executable = Get-ChildItem `
+            -LiteralPath $SearchRoot `
+            -Filter $Application.ExecutableName `
+            -File `
+            -Recurse `
+            -ErrorAction SilentlyContinue |
+            Select-Object -First 1
+
+        if ($null -ne $Executable) {
+            return $Executable.FullName
+        }
+    }
+
+    return $null
+}
+
+function Disable-ApplicationServices {
+    param (
+        [Parameter(Mandatory)]
+        [psobject]$Application
+    )
+
+    foreach ($ServiceName in $Application.ServiceNames) {
+        if ([string]::IsNullOrWhiteSpace($ServiceName)) {
+            continue
+        }
+
+        $Service = Get-Service `
+            -Name $ServiceName `
+            -ErrorAction SilentlyContinue
+
+        if ($null -eq $Service) {
+            continue
+        }
+
+        try {
+            if ($Service.Status -ne "Stopped") {
+                Stop-Service `
+                    -Name $ServiceName `
+                    -Force `
+                    -ErrorAction Stop
+            }
+
+            Set-Service `
+                -Name $ServiceName `
+                -StartupType Manual `
+                -ErrorAction Stop
+
+            Write-Success (
+                $Application.DisplayName +
+                " service '$ServiceName' was set to Manual."
+            )
+        }
+        catch {
+            Write-Warning (
+                "Unable to configure service " +
+                "'${ServiceName}' for " +
+                $Application.DisplayName +
+                ": " +
+                $_.Exception.Message
+            )
+        }
+    }
+}
+
 # ============================================================
 # 0B: Verify administrator privileges
 # ============================================================
@@ -1011,51 +2173,50 @@ catch {
 # 4A: Install Chocolatey applications
 # ============================================================
 
-Write-Step "Step 4A: Install Google Chrome and Mozilla Firefox"
+Write-Step "Step 4A: Install ChocolateyFirst Applications"
 
-$BrowserPackages = @(
-    "googlechrome"
-    "firefox"
-    "7zip.install"
-)
+$ChocolateyFirstApplications = $ApplicationDefinitions |
+    Where-Object {
+        $_.InstallType -eq "ChocolateyFirst"
+    }
 
-foreach ($Package in $BrowserPackages) {
-    Install-ChocolateyPackage -PackageName $Package
+foreach ($Application in $ChocolateyFirstApplications) {
+    Install-ChocolateyPackage `
+        -PackageName $Application.ChocoName | Out-Null
 }
 
 Refresh-EnvironmentPath
 
-$ChromePath = Find-ApplicationExecutable `
-    -FileName "chrome.exe" `
-    -CandidatePaths @(
-        "$env:ProgramFiles\Google\Chrome\Application\chrome.exe"
-        "${env:ProgramFiles(x86)}\Google\Chrome\Application\chrome.exe"
-        "$env:LOCALAPPDATA\Google\Chrome\Application\chrome.exe"
-    )
+# ============================================================
+# 4A.1: Open Surfshark extension pages after browsers install
+# ============================================================
 
-$FirefoxPath = Find-ApplicationExecutable `
-    -FileName "firefox.exe" `
-    -CandidatePaths @(
-        "$env:ProgramFiles\Mozilla Firefox\firefox.exe"
-        "${env:ProgramFiles(x86)}\Mozilla Firefox\firefox.exe"
-        "$env:LOCALAPPDATA\Mozilla Firefox\firefox.exe"
-    )
+Write-Step "Step 4A.1: Open Surfshark Browser Extension Pages"
 
-Write-Step "Open Surfshark Browser Extensions"
-
-$ChromeExtensionUrl = `
+$ChromeExtensionUrl = (
     "https://chrome.google.com/webstore/detail/" +
     "surfshark-vpn-extension/" +
     "ailoabdmgclmfmhdagmlohpjlbpffblp?hl=en"
+)
 
-$FirefoxExtensionUrl = `
+$FirefoxExtensionUrl = (
     "https://addons.mozilla.org/zh-TW/firefox/addon/" +
     "surfshark-vpn-proxy/"
+)
 
-if (
-    -not [string]::IsNullOrWhiteSpace($ChromePath) -and
-    (Test-Path -LiteralPath $ChromePath -PathType Leaf)
-) {
+$ChromeApplication = Get-ApplicationDefinition `
+    -DisplayName "Google Chrome"
+
+$FirefoxApplication = Get-ApplicationDefinition `
+    -DisplayName "Mozilla Firefox"
+
+$ChromePath = Find-ApplicationExecutableFromDefinition `
+    -Application $ChromeApplication
+
+$FirefoxPath = Find-ApplicationExecutableFromDefinition `
+    -Application $FirefoxApplication
+
+if ($null -ne $ChromePath) {
     try {
         Start-Process `
             -FilePath $ChromePath `
@@ -1068,22 +2229,19 @@ if (
     }
     catch {
         Write-Warning (
-            "Unable to open the Surfshark extension page in Chrome: " +
+            "Unable to open the Surfshark page in Chrome: " +
             $_.Exception.Message
         )
     }
 }
 else {
     Write-Warning (
-        "Google Chrome was not found, so its Surfshark page " +
-        "was not opened."
+        "Google Chrome was not found. " +
+        "Its Surfshark extension page was not opened."
     )
 }
 
-if (
-    -not [string]::IsNullOrWhiteSpace($FirefoxPath) -and
-    (Test-Path -LiteralPath $FirefoxPath -PathType Leaf)
-) {
+if ($null -ne $FirefoxPath) {
     try {
         Start-Process `
             -FilePath $FirefoxPath `
@@ -1096,15 +2254,15 @@ if (
     }
     catch {
         Write-Warning (
-            "Unable to open the Surfshark extension page in Firefox: " +
+            "Unable to open the Surfshark page in Firefox: " +
             $_.Exception.Message
         )
     }
 }
 else {
     Write-Warning (
-        "Mozilla Firefox was not found, so its Surfshark page " +
-        "was not opened."
+        "Mozilla Firefox was not found. " +
+        "Its Surfshark extension page was not opened."
     )
 }
 
@@ -1112,21 +2270,16 @@ else {
 # 4B: Install remaining Chocolatey applications
 # ============================================================
 
-Write-Step "Step 4B: Install Remaining Applications with Chocolatey"
+Write-Step "Step 4B: Install ChocolateyRemaining Applications"
 
-$ChocolateyPackages = @(
-    "vcredist2015"
-    "dotnetfx"
-    "dotnet-8.0-runtime"
-    "dotnet-8.0-desktopruntime"
-    "telegram"
-    "element-desktop"
-    "nircmd"
-    "wireguard"
-)
+$ChocolateyRemainingApplications = $ApplicationDefinitions |
+    Where-Object {
+        $_.InstallType -eq "ChocolateyRemaining"
+    }
 
-foreach ($Package in $ChocolateyPackages) {
-    Install-ChocolateyPackage -PackageName $Package
+foreach ($Application in $ChocolateyRemainingApplications) {
+    Install-ChocolateyPackage `
+        -PackageName $Application.ChocoName | Out-Null
 }
 
 Refresh-EnvironmentPath
@@ -1671,64 +2824,42 @@ else {
 # 7A: Create the Calculator desktop shortcut
 # ============================================================
 
-Write-Step "Step 10: Create Calculator Desktop Shortcut"
-
-$CalculatorPath = "$env:WINDIR\System32\calc.exe"
-$PublicDesktop = [Environment]::GetFolderPath(
-    "CommonDesktopDirectory"
-)
-$CalculatorShortcut = Join-Path `
-    -Path $PublicDesktop `
-    -ChildPath "Calculator.lnk"
-
-if (Test-Path $CalculatorPath) {
-    New-WindowsShortcut `
-        -TargetPath $CalculatorPath `
-        -ShortcutPath $CalculatorShortcut `
-        -IconLocation "$CalculatorPath,0" | Out-Null
-}
-else {
-    Write-Failure "Calculator executable was not found."
-}
-
-# ============================================================
-# 7B: Create Remote Desktop Connection shortcut
-# ============================================================
-
-Write-Step "Step 12: Create Remote Desktop Connection Shortcut"
-
-$RemoteDesktopPath = Join-Path `
-    -Path $env:WINDIR `
-    -ChildPath "System32\mstsc.exe"
+Write-Step "Step 7A. Create Desktop Shortcuts"
 
 $PublicDesktop = [Environment]::GetFolderPath(
     "CommonDesktopDirectory"
 )
 
-$RemoteDesktopShortcut = Join-Path `
-    -Path $PublicDesktop `
-    -ChildPath "Remote Desktop Connection.lnk"
+foreach ($Application in $ApplicationDefinitions) {
+    if (-not $Application.CreateDesktopShortcut) {
+        continue
+    }
 
-if (
-    Test-Path `
-        -LiteralPath $RemoteDesktopPath `
-        -PathType Leaf
-) {
+    $ExecutablePath = `
+        Find-ApplicationExecutableFromDefinition `
+            -Application $Application
+
+    if ($null -eq $ExecutablePath) {
+        Write-Warning (
+            $Application.DisplayName +
+            " executable was not found. " +
+            "Desktop shortcut was skipped."
+        )
+
+        continue
+    }
+
+    $ShortcutPath = Join-Path `
+        -Path $PublicDesktop `
+        -ChildPath (
+            $Application.DesktopShortcutName +
+            ".lnk"
+        )
+
     New-WindowsShortcut `
-        -TargetPath $RemoteDesktopPath `
-        -ShortcutPath $RemoteDesktopShortcut `
-        -WorkingDirectory (
-            Split-Path `
-                -Path $RemoteDesktopPath `
-                -Parent
-        ) `
-        -IconLocation "$RemoteDesktopPath,0" | Out-Null
-}
-else {
-    Write-Failure (
-        "Remote Desktop Connection executable was not found: " +
-        $RemoteDesktopPath
-    )
+        -TargetPath $ExecutablePath `
+        -ShortcutPath $ShortcutPath `
+        -IconLocation "$ExecutablePath,0" | Out-Null
 }
 
 # ============================================================
