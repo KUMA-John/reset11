@@ -2186,8 +2186,9 @@ function Install-DirectDownloadApplication {
 }
 
 # ============================================================
-# 0B: Verify administrator privileges
+# Step 1A: Verify administrator privileges
 # ============================================================
+Write-Step "Step 1A: Verify administrator privileges"
 
 if (-not (Test-IsAdministrator)) {
     Write-Error "This script must be run as Administrator."
@@ -2208,10 +2209,9 @@ Write-Host ""
 $RestartRecommended = $false
 
 # ============================================================
-# 0C: Configure TLS and execution policy
+# Step 1B: Configure TLS and execution policy
 # ============================================================
-
-Write-Step "Step 1: Configure PowerShell Environment"
+Write-Step "Step 1B: Configure TLS and execution policy"
 
 try {
     [Net.ServicePointManager]::SecurityProtocol = `
@@ -2233,9 +2233,8 @@ catch {
 }
 
 # ============================================================
-# 2: Install Chocolatey
+# Step 2: Install Chocolatey
 # ============================================================
-
 Write-Step "Step 2: Install Chocolatey"
 
 if (Test-CommandAvailable -CommandName "choco.exe") {
@@ -2282,9 +2281,8 @@ catch {
 }
 
 # ============================================================
-# 3: Enable .NET Framework 3.5
+# Step 3: Enable Microsoft .NET Framework 3.5
 # ============================================================
-
 Write-Step "Step 3: Enable Microsoft .NET Framework 3.5"
 
 try {
@@ -2316,7 +2314,7 @@ catch {
 }
 
 # ============================================================
-# 4A: Install Chocolatey applications
+# Step 4A: Install ChocolateyFirst Applications"
 # ============================================================
 Write-Step "Step 4A: Install ChocolateyFirst Applications"
 
@@ -2332,10 +2330,10 @@ foreach ($Application in $ApplicationDefinitions) {
 Refresh-EnvironmentPath
 
 # ============================================================
-# 4A.1: Open Surfshark extension pages after browsers install
+# Step 4B: Open Surfshark Browser Extension Pages
 # ============================================================
 
-Write-Step "Step 4A.1: Open Surfshark Browser Extension Pages"
+Write-Step "Step 4B: Open Surfshark Browser Extension Pages"
 
 $ChromeExtensionUrl = (
     "https://chrome.google.com/webstore/detail/" +
@@ -2411,10 +2409,9 @@ else {
 }
 
 # ============================================================
-# 4B: Install remaining applications in definition order
+# Step 5: Install Remaining Applications
 # ============================================================
-
-Write-Step "Step 4B: Install Remaining Applications"
+Write-Step "Step 5: Install Remaining Applications"
 
 foreach ($Application in $ApplicationDefinitions) {
     # ChocolateyFirst applications were already installed
@@ -2430,10 +2427,10 @@ foreach ($Application in $ApplicationDefinitions) {
 }
 
 # ============================================================
-# 7: Create desktop shortcuts
+# Step 6: Create Desktop Shortcuts
 # ============================================================
 
-Write-Step "Step 7: Create Desktop Shortcuts"
+Write-Step "Step 6: Create Desktop Shortcuts"
 
 $PublicDesktop = [Environment]::GetFolderPath(
     "CommonDesktopDirectory"
@@ -2499,10 +2496,10 @@ foreach ($Application in $ApplicationDefinitions) {
 }
 
 # ============================================================
-# 8: Configure application startup
+# Step 7: Configure Application Startup
 # ============================================================
 
-Write-Step "Step 8: Configure Application Startup"
+Write-Step "Step 7: Configure Application Startup"
 
 foreach ($Application in $ApplicationDefinitions) {
     if ($null -eq $Application.StartupAction) {
@@ -2584,10 +2581,10 @@ foreach ($Application in $ApplicationDefinitions) {
 }
 
 # ============================================================
-# 9: Configure display and sleep timeouts
+# Step 8: Configure Power Settings
 # ============================================================
 
-Write-Step "Step 12: Configure Power Settings"
+Write-Step "Step 8: Configure Power Settings"
 
 try {
     # Battery:
@@ -2639,10 +2636,9 @@ catch {
 }
 
 # ============================================================
-# 10: Configure Windows 11 taskbar
+# Step 9: Configure Windows 11 Taskbar
 # ============================================================
-
-Write-Step "Step 10: Configure Windows 11 Taskbar"
+Write-Step "Step 9: Configure Windows 11 Taskbar"
 
 $TaskbarShortcutDirectory = Join-Path `
     -Path $env:ProgramData `
@@ -2856,10 +2852,9 @@ $TaskbarPinsXml
 }
 
 # ============================================================
-# Mute system audio
+# Step 10: Mute System Audio
 # ============================================================
-
-Write-Step "Mute System Audio"
+Write-Step "Step 10: Mute System Audio"
 
 Refresh-EnvironmentPath
 
@@ -2899,144 +2894,13 @@ catch {
 }
 
 # ============================================================
-# Update installed applications
+# Step 11: Update Installed Applications
 # ============================================================
-
-Write-Step "Update Installed Applications"
-
-# ------------------------------------------------------------
-# Update Chocolatey itself
-# ------------------------------------------------------------
-
-if (Test-CommandAvailable -CommandName "choco.exe") {
-    try {
-        Write-Host "Updating Chocolatey..."
-
-        choco upgrade chocolatey `
-            -y `
-            --no-progress
-
-        if ($LASTEXITCODE -in @(0, 1641, 3010)) {
-            Write-Success "Chocolatey update completed."
-        }
-        else {
-            Write-Warning (
-                "Chocolatey update returned exit code " +
-                "$LASTEXITCODE."
-            )
-        }
-    }
-    catch {
-        Write-Warning (
-            "Chocolatey update failed: " +
-            $_.Exception.Message
-        )
-    }
-
-    # --------------------------------------------------------
-    # Update all Chocolatey-managed applications
-    # --------------------------------------------------------
-
-    try {
-        Write-Host "Updating all Chocolatey packages..."
-
-        choco upgrade all `
-            -y `
-            --no-progress `
-            --ignore-checksums=false
-
-        if ($LASTEXITCODE -in @(0, 1641, 3010)) {
-            Write-Success (
-                "Chocolatey application updates completed."
-            )
-
-            if ($LASTEXITCODE -in @(1641, 3010)) {
-                $RestartRecommended = $true
-            }
-        }
-        else {
-            Write-Warning (
-                "Chocolatey package update returned exit code " +
-                "$LASTEXITCODE."
-            )
-        }
-    }
-    catch {
-        Write-Warning (
-            "Chocolatey package update failed: " +
-            $_.Exception.Message
-        )
-    }
-}
-else {
-    Write-Warning "Chocolatey is unavailable."
-}
-
-# ------------------------------------------------------------
-# Update all WinGet applications
-# ------------------------------------------------------------
-
-if (Test-CommandAvailable -CommandName "winget.exe") {
-    try {
-        Write-Host "Refreshing WinGet sources..."
-
-        winget source update `
-            --disable-interactivity
-        
-        $WingetSourceExitCode = $LASTEXITCODE
-        
-        if ($WingetSourceExitCode -eq 0) {
-            Write-Success "WinGet sources were refreshed."
-        }
-        else {
-            Write-Warning (
-                "WinGet source update returned exit code " +
-                "$WingetSourceExitCode."
-            )
-        }
-
-        Write-Host "Showing available WinGet updates..."
-
-        winget upgrade `
-            --accept-source-agreements `
-            --disable-interactivity
-
-        Write-Host "Installing all WinGet updates..."
-
-        winget upgrade `
-            --all `
-            --silent `
-            --accept-source-agreements `
-            --accept-package-agreements `
-            --disable-interactivity `
-            --include-unknown
-
-        if ($LASTEXITCODE -eq 0) {
-            Write-Success "WinGet application updates completed."
-        }
-        else {
-            Write-Warning (
-                "WinGet update returned exit code " +
-                "$LASTEXITCODE."
-            )
-        }
-    }
-    catch {
-        Write-Warning (
-            "WinGet application update failed: " +
-            $_.Exception.Message
-        )
-    }
-}
-else {
-    Write-Warning "WinGet is unavailable."
-}
+Write-Step "Step 11: Update Installed Applications"
 
 # ============================================================
 # Install and run Dell Command Update
 # ============================================================
-
-Write-Step "Install and Run Dell Command Update"
 
 if (-not (Test-IsDellComputer)) {
     Write-Skip (
@@ -3045,6 +2909,7 @@ if (-not (Test-IsDellComputer)) {
     )
 }
 else {
+    Write-Step "Step 11A: Install and Run Dell Command Update"
     Write-Success "Dell computer detected."
 
     # --------------------------------------------------------
@@ -3308,10 +3173,10 @@ else {
 }
 
 # ============================================================
-# 11: Display results
+# Step 13: Display results
 # ============================================================
 
-Write-Step "Step 11: Setup Results"
+Write-Step "Step 13: Display results"
 
 Write-Host "Computer: $env:COMPUTERNAME"
 Write-Host "User: $env:USERDOMAIN\$env:USERNAME"
