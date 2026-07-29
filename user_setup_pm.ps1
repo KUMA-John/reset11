@@ -2331,31 +2331,160 @@ foreach ($Application in $MsStoreApplications) {
 }
 
 # ============================================================
-# 6C: Download and install Client
+# Install DirectDownload applications
 # ============================================================
 
-Write-Step "Step 6C: Download and install Client"
+$DirectDownloadApplications = $ApplicationDefinitions |
+    Where-Object {
+        $_.InstallType -eq "DirectDownload"
+    }
 
+foreach ($Application in $DirectDownloadApplications) {
+    $ApplicationInstalled = Test-ApplicationInstalled `
+        -DisplayNamePatterns $Application.DisplayNamePatterns `
+        -ExecutablePaths $Application.ExecutablePaths `
+        -AppxNamePatterns $Application.AppxNamePatterns `
+        -ServiceNames $Application.ServiceNames
 
-$Application = Get-ApplicationDefinition `
-    -DisplayName "Surfshark"
+    if ($ApplicationInstalled) {
+        Write-Skip (
+            $Application.DisplayName +
+            " is already installed."
+        )
 
-$InstallerPath = Join-Path `
-    -Path $SoftwareDirectory `
-    -ChildPath $Application.InstallerFileName
+        continue
+    }
 
-Invoke-WebRequest `
-    -Uri $Application.InstallerDirectDownload `
-    -OutFile $InstallerPath `
-    -UseBasicParsing `
-    -ErrorAction Stop
+    if (
+        [string]::IsNullOrWhiteSpace(
+            $Application.InstallerDirectDownload
+        )
+    ) {
+        Write-Failure (
+            $Application.DisplayName +
+            " has no direct download URL."
+        )
 
-$Process = Start-Process `
-    -FilePath $InstallerPath `
-    -ArgumentList $Application.InstallerArguments `
-    -Wait `
-    -PassThru `
-    -ErrorAction Stop
+        continue
+    }
+
+    if (
+        [string]::IsNullOrWhiteSpace(
+            $Application.InstallerFileName
+        )
+    ) {
+        Write-Failure (
+            $Application.DisplayName +
+            " has no installer file name."
+        )
+
+        continue
+    }
+
+    $InstallerPath = Join-Path `
+        -Path $SoftwareDirectory `
+        -ChildPath $Application.InstallerFileName
+
+    try {
+        if (-not (
+            Test-Path `
+                -LiteralPath $SoftwareDirectory `
+                -PathType Container
+        )) {
+            New-Item `
+                -Path $SoftwareDirectory `
+                -ItemType Directory `
+                -Force `
+                -ErrorAction Stop | Out-Null
+        }
+
+        Write-Host (
+            "Downloading " +
+            $Application.DisplayName +
+            "..."
+        )
+
+        Invoke-WebRequest `
+            -Uri $Application.InstallerDirectDownload `
+            -OutFile $InstallerPath `
+            -UseBasicParsing `
+            -ErrorAction Stop
+
+        Unblock-File `
+            -LiteralPath $InstallerPath `
+            -ErrorAction SilentlyContinue
+
+        Write-Success (
+            $Application.DisplayName +
+            " was downloaded."
+        )
+
+        $InstallerProcess = Start-Process `
+            -FilePath $InstallerPath `
+            -ArgumentList $Application.InstallerArguments `
+            -Wait `
+            -PassThru `
+            -ErrorAction Stop
+
+        Write-Host (
+            $Application.DisplayName +
+            " installer exit code: " +
+            $InstallerProcess.ExitCode
+        )
+
+        Start-Sleep -Seconds 5
+
+        $ApplicationInstalled = Test-ApplicationInstalled `
+            -DisplayNamePatterns $Application.DisplayNamePatterns `
+            -ExecutablePaths $Application.ExecutablePaths `
+            -AppxNamePatterns $Application.AppxNamePatterns `
+            -ServiceNames $Application.ServiceNames
+
+        if ($ApplicationInstalled) {
+            Write-Success (
+                $Application.DisplayName +
+                " installation completed."
+            )
+
+            if (
+                $InstallerProcess.ExitCode -in @(
+                    1641
+                    3010
+                )
+            ) {
+                $RestartRecommended = $true
+            }
+        }
+        else {
+            Write-Warning (
+                $Application.DisplayName +
+                " installation could not be verified. " +
+                "Opening the installer interactively."
+            )
+
+            Start-Process `
+                -FilePath $InstallerPath `
+                -ErrorAction Stop
+        }
+    }
+    catch {
+        Write-Failure (
+            $Application.DisplayName +
+            " installation failed: " +
+            $_.Exception.Message
+        )
+
+        if (
+            Test-Path `
+                -LiteralPath $InstallerPath `
+                -PathType Leaf
+        ) {
+            Start-Process `
+                -FilePath $InstallerPath `
+                -ErrorAction SilentlyContinue
+        }
+    }
+}
 
 # ============================================================
 # 7A: Create the Calculator desktop shortcut
