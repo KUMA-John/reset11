@@ -30,75 +30,6 @@ Set-StrictMode -Version Latest
 $ErrorActionPreference = "Stop"
 $ProgressPreference = "SilentlyContinue"
 
-
-# ============================================================
-# Configuration
-# ============================================================
-
-# ------------------------------------------------------------
-# Chocolatey - First install
-# ------------------------------------------------------------
-$ChocolateyPackagesStage1 = @(
-    "googlechrome"
-    "firefox"
-    "7zip.install"
-)
-
-# ------------------------------------------------------------
-# Chocolatey - Second install
-# ------------------------------------------------------------
-$ChocolateyPackagesStage2 = @(
-    "vcredist2015"
-    "dotnetfx"
-    "dotnet-8.0-runtime"
-    "dotnet-8.0-desktopruntime"
-    "telegram"
-    "element-desktop"
-    "nircmd"
-    "wireguard"
-)
-
-# ------------------------------------------------------------
-# Creates desktop shortcut
-# ------------------------------------------------------------
-$DesktopShortcutApplications = @(
-    "Calculator"
-    "RemoteDesktop"
-)
-
-# ------------------------------------------------------------
-# Creates Taskbar shortcut
-# ------------------------------------------------------------
-$TaskbarApplications = @(
-    "GoogleChrome"
-    "MozillaFirefox"
-    "Surfshark"
-    "Outline"
-    "Telegram"
-    "Element"
-    "RemoteDesktop"
-    "WireGuard"
-    "AxureRP10"
-)
-
-# ------------------------------------------------------------
-# Disable installed software startup entries
-# ------------------------------------------------------------
-$DisableStartupApplications = @(
-    "AnyDesk"
-    "MicrosoftTeams"
-    "OneDrive"
-)
-
-# ------------------------------------------------------------
-# Enable installed software startup entries
-# ------------------------------------------------------------
-$EnableStartupApplications = @(
-    "Slack"
-    "Snipaste"
-)
-
-
 # ============================================================
 # 0A: Common functions
 # ============================================================
@@ -946,74 +877,9 @@ function Test-IsDellComputer {
     }
 }
 
-function Test-ApplicationOptionEnabled {
-    param (
-        [Parameter(Mandatory)]
-        [string]$ApplicationId,
-
-        [Parameter(Mandatory)]
-        [ValidateSet(
-            "DesktopShortcut",
-            "TaskbarPin"
-        )]
-        [string]$Option
-    )
-
-    $Application = $Applications |
-        Where-Object {
-            $_.Id -eq $ApplicationId
-        } |
-        Select-Object -First 1
-
-    if ($null -eq $Application) {
-        return $false
-    }
-
-    return [bool]$Application.$Option
-}
-
-function Test-TaskbarPinEnabled {
-    param (
-        [Parameter(Mandatory)]
-        [string]$ApplicationId
-    )
-
-    return Test-ApplicationOptionEnabled `
-        -ApplicationId $ApplicationId `
-        -Option "TaskbarPin"
-}
-
-function Test-StartupAction {
-    param (
-        [Parameter(Mandatory)]
-        [string]$ApplicationId,
-
-        [Parameter(Mandatory)]
-        [ValidateSet(
-            "Enable",
-            "Disable",
-            "None"
-        )]
-        [string]$Action
-    )
-
-    $Application = $Applications |
-        Where-Object {
-            $_.Id -eq $ApplicationId
-        } |
-        Select-Object -First 1
-
-    if ($null -eq $Application) {
-        return $false
-    }
-
-    return $Application.StartupAction -eq $Action
-}
-
 # ============================================================
 # 0B: Verify administrator privileges
 # ============================================================
-Write-Step "Step 0B: Verify administrator privileges"
 
 if (-not (Test-IsAdministrator)) {
     Write-Error "This script must be run as Administrator."
@@ -1034,9 +900,10 @@ Write-Host ""
 $RestartRecommended = $false
 
 # ============================================================
-# Step 0C: Configure TLS and execution policy
+# 0C: Configure TLS and execution policy
 # ============================================================
-Write-Step "Step 0C: Configure PowerShell Environment"
+
+Write-Step "Step 1: Configure PowerShell Environment"
 
 try {
     [Net.ServicePointManager]::SecurityProtocol = `
@@ -1058,7 +925,7 @@ catch {
 }
 
 # ============================================================
-# Step 2: Install Chocolatey
+# 2: Install Chocolatey
 # ============================================================
 
 Write-Step "Step 2: Install Chocolatey"
@@ -1107,7 +974,7 @@ catch {
 }
 
 # ============================================================
-# Step 3: Enable .NET Framework 3.5
+# 3: Enable .NET Framework 3.5
 # ============================================================
 
 Write-Step "Step 3: Enable Microsoft .NET Framework 3.5"
@@ -1141,20 +1008,21 @@ catch {
 }
 
 # ============================================================
-# Step 4A: Install Chocolatey applications
+# 4A: Install Chocolatey applications
 # ============================================================
-Write-Step "Step 4A: Install Chocolatey applications"
 
-$ChocolateyStage1Applications = $Applications |
-    Where-Object {
-        $_.ChocolateyStage -eq 1 -and
-        -not [string]::IsNullOrWhiteSpace($_.ChocolateyName)
-    }
+Write-Step "Step 4A: Install Google Chrome and Mozilla Firefox"
 
-foreach ($Application in $ChocolateyStage1Applications) {
-    Install-ChocolateyPackage `
-        -PackageName $Application.ChocolateyName
+$BrowserPackages = @(
+    "googlechrome"
+    "firefox"
+    "7zip.install"
+)
+
+foreach ($Package in $BrowserPackages) {
+    Install-ChocolateyPackage -PackageName $Package
 }
+
 Refresh-EnvironmentPath
 
 $ChromePath = Find-ApplicationExecutable `
@@ -1241,30 +1109,30 @@ else {
 }
 
 # ============================================================
-# Step 4B: Install remaining Chocolatey applications
+# 4B: Install remaining Chocolatey applications
 # ============================================================
+
 Write-Step "Step 4B: Install Remaining Applications with Chocolatey"
 
-$ChocolateyStage2Applications = $Applications |
-    Where-Object {
-        $_.ChocolateyStage -eq 2 -and
-        -not [string]::IsNullOrWhiteSpace($_.ChocolateyName)
-    }
+$ChocolateyPackages = @(
+    "vcredist2015"
+    "dotnetfx"
+    "dotnet-8.0-runtime"
+    "dotnet-8.0-desktopruntime"
+    "telegram"
+    "element-desktop"
+    "nircmd"
+    "wireguard"
+)
 
-foreach ($Application in $ChocolateyStage2Applications) {
-    Install-ChocolateyPackage `
-        -PackageName $Application.ChocolateyName
+foreach ($Package in $ChocolateyPackages) {
+    Install-ChocolateyPackage -PackageName $Package
 }
 
 Refresh-EnvironmentPath
 
-$DesktopShortcutApplications = $Applications |
-    Where-Object {
-        $_.DesktopShortcut
-    }
-
 # ============================================================
-# Step 5: Verify or initialize WinGet
+# 5: Verify or initialize WinGet
 # ============================================================
 
 Write-Step "Step 5: Verify Windows Package Manager"
@@ -1654,7 +1522,7 @@ else {
 # 6G: Download and install Axure RP 10
 # ============================================================
 
-Write-Step "Step 6G: Install Axure RP 10"
+Write-Step "Step 11: Install Axure RP 10"
 
 $AxureRp10Version = "10.0.0.3929"
 $AxureRp10Build = "3929"
@@ -1800,89 +1668,368 @@ else {
 }
 
 # ============================================================
-# Step 7: Create the Calculator desktop shortcut
+# 7A: Create the Calculator desktop shortcut
 # ============================================================
-Write-Step "Step 7: Create the Calculator desktop shortcut"
 
-if (
-    Test-ApplicationOptionEnabled `
-        -ApplicationId "Calculator" `
-        -Option "DesktopShortcut"
-) {
-    # Create the Calculator desktop shortcut.
+Write-Step "Step 10: Create Calculator Desktop Shortcut"
+
+$CalculatorPath = "$env:WINDIR\System32\calc.exe"
+$PublicDesktop = [Environment]::GetFolderPath(
+    "CommonDesktopDirectory"
+)
+$CalculatorShortcut = Join-Path `
+    -Path $PublicDesktop `
+    -ChildPath "Calculator.lnk"
+
+if (Test-Path $CalculatorPath) {
+    New-WindowsShortcut `
+        -TargetPath $CalculatorPath `
+        -ShortcutPath $CalculatorShortcut `
+        -IconLocation "$CalculatorPath,0" | Out-Null
+}
+else {
+    Write-Failure "Calculator executable was not found."
 }
 
 # ============================================================
-# Step 8A: Disable installed startup entries
+# 7B: Create Remote Desktop Connection shortcut
 # ============================================================
-Write-Step "Step 8A: Disable installed startup entries"
 
-$DisableStartupApplications = $Applications |
-    Where-Object {
-        $_.StartupAction -eq "Disable"
+Write-Step "Step 12: Create Remote Desktop Connection Shortcut"
+
+$RemoteDesktopPath = Join-Path `
+    -Path $env:WINDIR `
+    -ChildPath "System32\mstsc.exe"
+
+$PublicDesktop = [Environment]::GetFolderPath(
+    "CommonDesktopDirectory"
+)
+
+$RemoteDesktopShortcut = Join-Path `
+    -Path $PublicDesktop `
+    -ChildPath "Remote Desktop Connection.lnk"
+
+if (
+    Test-Path `
+        -LiteralPath $RemoteDesktopPath `
+        -PathType Leaf
+) {
+    New-WindowsShortcut `
+        -TargetPath $RemoteDesktopPath `
+        -ShortcutPath $RemoteDesktopShortcut `
+        -WorkingDirectory (
+            Split-Path `
+                -Path $RemoteDesktopPath `
+                -Parent
+        ) `
+        -IconLocation "$RemoteDesktopPath,0" | Out-Null
+}
+else {
+    Write-Failure (
+        "Remote Desktop Connection executable was not found: " +
+        $RemoteDesktopPath
+    )
+}
+
+# ============================================================
+# 8A: Disable installed AnyDesk, Microsoft Teams, and OneDrive
+# startup entries
+# ============================================================
+
+Write-Step "Disable Installed Unwanted Startup Applications"
+
+# ------------------------------------------------------------
+# Detect AnyDesk
+# ------------------------------------------------------------
+
+$AnyDeskInstalled = Test-ApplicationInstalled `
+    -DisplayNamePatterns @(
+        "AnyDesk*"
+    ) `
+    -ExecutablePaths @(
+        "$env:ProgramFiles\AnyDesk\AnyDesk.exe"
+        "${env:ProgramFiles(x86)}\AnyDesk\AnyDesk.exe"
+        "$env:LOCALAPPDATA\AnyDesk\AnyDesk.exe"
+        "$env:APPDATA\AnyDesk\AnyDesk.exe"
+    ) `
+    -ServiceNames @(
+        "AnyDesk"
+    )
+
+if ($AnyDeskInstalled) {
+    Write-Host "AnyDesk is installed. Disabling startup."
+
+    Stop-ApplicationProcesses `
+        -ProcessNames @(
+            "AnyDesk"
+        )
+
+    Remove-StartupEntry `
+        -Names @(
+            "AnyDesk"
+            "AnyDesk.exe"
+        )
+
+    Disable-StartupApprovedEntry `
+        -Names @(
+            "AnyDesk"
+            "AnyDesk.exe"
+        )
+
+    $AnyDeskService = Get-Service `
+        -Name "AnyDesk" `
+        -ErrorAction SilentlyContinue
+
+    if ($null -ne $AnyDeskService) {
+        try {
+            if ($AnyDeskService.Status -ne "Stopped") {
+                Stop-Service `
+                    -Name "AnyDesk" `
+                    -Force `
+                    -ErrorAction Stop
+            }
+
+            Set-Service `
+                -Name "AnyDesk" `
+                -StartupType Manual `
+                -ErrorAction Stop
+
+            Write-Success (
+                "AnyDesk service startup type was set to Manual."
+            )
+        }
+        catch {
+            Write-Warning (
+                "Unable to configure the AnyDesk service: " +
+                $_.Exception.Message
+            )
+        }
     }
 
-
-if (
-    Test-StartupAction `
-        -ApplicationId "AnyDesk" `
-        -Action "Disable"
-) {
-    # Keep the existing AnyDesk detection and startup-disable code here.
+    Write-Success "AnyDesk startup was disabled."
 }
 else {
-    Write-Skip "AnyDesk startup disabling is not enabled in configuration."
+    Write-Skip (
+        "AnyDesk is not installed. Startup configuration was skipped."
+    )
 }
 
-if (
-    Test-StartupAction `
-        -ApplicationId "AnyDesk" `
-        -Action "Disable"
-) {
-    # Keep the existing AnyDesk detection and startup-disable code here.
+# ------------------------------------------------------------
+# Detect Microsoft Teams
+# ------------------------------------------------------------
+
+$TeamsInstalled = Test-ApplicationInstalled `
+    -DisplayNamePatterns @(
+        "Microsoft Teams*"
+        "Teams Machine-Wide Installer*"
+    ) `
+    -ExecutablePaths @(
+        "$env:LOCALAPPDATA\Microsoft\Teams\current\Teams.exe"
+        "$env:LOCALAPPDATA\Microsoft\WindowsApps\ms-teams.exe"
+        "$env:ProgramFiles\WindowsApps\MSTeams_*\ms-teams.exe"
+    ) `
+    -AppxNamePatterns @(
+        "MSTeams"
+        "MicrosoftTeams"
+    )
+
+if ($TeamsInstalled) {
+    Write-Host "Microsoft Teams is installed. Disabling startup."
+
+    Stop-ApplicationProcesses `
+        -ProcessNames @(
+            "ms-teams"
+            "Teams"
+        )
+
+    Remove-StartupEntry `
+        -Names @(
+            "Teams"
+            "Microsoft Teams"
+            "MSTeams"
+            "com.squirrel.Teams.Teams"
+        )
+
+    Disable-StartupApprovedEntry `
+        -Names @(
+            "Teams"
+            "Microsoft Teams"
+            "MSTeams"
+            "com.squirrel.Teams.Teams"
+        )
+
+    Write-Success "Microsoft Teams startup was disabled."
 }
 else {
-    Write-Skip "AnyDesk startup disabling is not enabled in configuration."
+    Write-Skip (
+        "Microsoft Teams is not installed. " +
+        "Startup configuration was skipped."
+    )
 }
 
-if (
-    Test-StartupAction `
-        -ApplicationId "OneDrive" `
-        -Action "Disable"
-) {
-    # Keep the existing OneDrive detection code here.
+# ------------------------------------------------------------
+# Detect Microsoft OneDrive
+# ------------------------------------------------------------
+
+$OneDriveInstalled = Test-ApplicationInstalled `
+    -DisplayNamePatterns @(
+        "Microsoft OneDrive*"
+    ) `
+    -ExecutablePaths @(
+        "$env:LOCALAPPDATA\Microsoft\OneDrive\OneDrive.exe"
+        "$env:ProgramFiles\Microsoft OneDrive\OneDrive.exe"
+        "${env:ProgramFiles(x86)}\Microsoft OneDrive\OneDrive.exe"
+        "$env:SystemRoot\System32\OneDriveSetup.exe"
+        "$env:SystemRoot\SysWOW64\OneDriveSetup.exe"
+    )
+
+if ($OneDriveInstalled) {
+    Write-Host "Microsoft OneDrive is installed. Disabling startup."
+
+    Stop-ApplicationProcesses `
+        -ProcessNames @(
+            "OneDrive"
+        )
+
+    Remove-StartupEntry `
+        -Names @(
+            "OneDrive"
+            "Microsoft OneDrive"
+        )
+
+    Disable-StartupApprovedEntry `
+        -Names @(
+            "OneDrive"
+            "Microsoft OneDrive"
+        )
+
+    $CurrentUserRunPath = `
+        "HKCU:\Software\Microsoft\Windows\CurrentVersion\Run"
+
+    if (Test-Path $CurrentUserRunPath) {
+        Remove-ItemProperty `
+            -Path $CurrentUserRunPath `
+            -Name "OneDrive" `
+            -Force `
+            -ErrorAction SilentlyContinue
+    }
+
+    Write-Success "Microsoft OneDrive startup was disabled."
+}
+else {
+    Write-Skip (
+        "Microsoft OneDrive is not installed. " +
+        "Startup configuration was skipped."
+    )
 }
 
 # ============================================================
 # 8B: Configure installed Slack and Snipaste startup
 # ============================================================
-Write-Step "8B: Configure installed Slack and Snipaste startup"
 
-$EnableStartupApplications = $Applications |
-    Where-Object {
-        $_.StartupAction -eq "Enable"
+Write-Step "Step 11: Configure Installed Slack and Snipaste Startup"
+
+# ------------------------------------------------------------
+# Detect and configure Slack
+# ------------------------------------------------------------
+
+$SlackInstalled = Test-ApplicationInstalled `
+    -DisplayNamePatterns @(
+        "Slack*"
+    ) `
+    -ExecutablePaths @(
+        "$env:LOCALAPPDATA\slack\slack.exe"
+        "$env:LOCALAPPDATA\Programs\slack\slack.exe"
+        "$env:ProgramFiles\Slack\slack.exe"
+        "${env:ProgramFiles(x86)}\Slack\slack.exe"
+    ) `
+    -AppxNamePatterns @(
+        "*Slack*"
+    )
+
+if ($SlackInstalled) {
+    $SlackPath = Find-ApplicationExecutable `
+        -FileName "slack.exe" `
+        -CandidatePaths @(
+            "$env:LOCALAPPDATA\slack\slack.exe"
+            "$env:LOCALAPPDATA\Programs\slack\slack.exe"
+            "$env:ProgramFiles\Slack\slack.exe"
+            "${env:ProgramFiles(x86)}\Slack\slack.exe"
+        ) `
+        -SearchRoots @(
+            "$env:LOCALAPPDATA\slack"
+            "$env:LOCALAPPDATA\Programs"
+            "$env:ProgramFiles\Slack"
+            "${env:ProgramFiles(x86)}\Slack"
+            "$env:ChocolateyInstall\lib\slack"
+        )
+
+    if ($null -ne $SlackPath) {
+        Enable-ApplicationStartup `
+            -ApplicationName "Slack" `
+            -ExecutablePath $SlackPath
+
+        Write-Success "Slack startup was configured."
     }
-
-if (
-    Test-StartupAction `
-        -ApplicationId "Slack" `
-        -Action "Enable"
-) {
-    # Keep the existing Slack detection and startup code here.
+    else {
+        Write-Warning (
+            "Slack appears to be installed, but slack.exe " +
+            "could not be found. Startup was not configured."
+        )
+    }
 }
 else {
-    Write-Skip "Slack startup is not enabled in configuration."
+    $SlackPath = $null
+
+    Write-Skip (
+        "Slack is not installed. Startup configuration was skipped."
+    )
 }
 
-if (
-    Test-StartupAction `
-        -ApplicationId "Snipaste" `
-        -Action "Enable"
-) {
-    # Keep the existing Snipaste detection and startup code here.
+# ------------------------------------------------------------
+# Detect and configure Snipaste
+# ------------------------------------------------------------
+
+$SnipasteInstalled = Test-ApplicationInstalled `
+    -DisplayNamePatterns @(
+        "Snipaste*"
+    ) `
+    -ExecutablePaths @(
+        "C:\tools\snipaste\Snipaste.exe"
+        "C:\tools\snipaste\snipaste.exe"
+        "$env:ChocolateyInstall\bin\Snipaste.exe"
+        "$env:ProgramFiles\Snipaste\Snipaste.exe"
+        "${env:ProgramFiles(x86)}\Snipaste\Snipaste.exe"
+        "$env:LOCALAPPDATA\Snipaste\Snipaste.exe"
+        "$env:ChocolateyInstall\lib\snipaste\tools\Snipaste.exe"
+    ) `
+    -AppxNamePatterns @(
+        "*Snipaste*"
+    )
+
+if ($SnipasteInstalled) {
+    $SnipastePath = Find-SnipasteExecutable
+
+    if ($null -ne $SnipastePath) {
+        Enable-ApplicationStartup `
+            -ApplicationName "Snipaste" `
+            -ExecutablePath $SnipastePath
+
+        Write-Success "Snipaste startup was configured."
+    }
+    else {
+        Write-Warning (
+            "Snipaste appears to be installed, but Snipaste.exe " +
+            "could not be found. Startup was not configured."
+        )
+    }
 }
 else {
-    Write-Skip "Snipaste startup is not enabled in configuration."
+    $SnipastePath = $null
+
+    Write-Skip (
+        "Snipaste is not installed. Startup configuration was skipped."
+    )
 }
 
 # ============================================================
@@ -1943,40 +2090,83 @@ catch {
 # ============================================================
 # 10: Configure Windows 11 taskbar pins for installed applications
 # ============================================================
-Write-Step "Configure Windows 10 Taskbar for Installed Applications"
 
-$TaskbarApplications = $Applications |
-    Where-Object {
-        $_.TaskbarPin
-    }
+Write-Step "Configure Windows 11 Taskbar for Installed Applications"
+
+$CommonPrograms = [Environment]::GetFolderPath(
+    "CommonPrograms"
+)
+
+$TaskbarShortcutDirectory = Join-Path `
+    -Path $CommonPrograms `
+    -ChildPath "Kuma Taskbar"
+
+if (-not (Test-Path $TaskbarShortcutDirectory)) {
+    New-Item `
+        -Path $TaskbarShortcutDirectory `
+        -ItemType Directory `
+        -Force | Out-Null
+}
+
+# This array contains only applications that were actually detected.
+$TaskbarPinEntries = @()
 
 # ------------------------------------------------------------
 # Detect Google Chrome
 # ------------------------------------------------------------
 
-if (-not (Test-TaskbarPinEnabled -ApplicationId "GoogleChrome")) {
-    Write-Skip "Google Chrome taskbar pin is disabled in configuration."
-}
-else {
-    $ChromeInstalled = Test-ApplicationInstalled `
-        -DisplayNamePatterns @(
-            "Google Chrome*"
-        ) `
-        -ExecutablePaths @(
+$ChromeInstalled = Test-ApplicationInstalled `
+    -DisplayNamePatterns @(
+        "Google Chrome*"
+    ) `
+    -ExecutablePaths @(
+        "$env:ProgramFiles\Google\Chrome\Application\chrome.exe"
+        "${env:ProgramFiles(x86)}\Google\Chrome\Application\chrome.exe"
+        "$env:LOCALAPPDATA\Google\Chrome\Application\chrome.exe"
+    )
+
+if ($ChromeInstalled) {
+    $ChromePath = Find-ApplicationExecutable `
+        -FileName "chrome.exe" `
+        -CandidatePaths @(
             "$env:ProgramFiles\Google\Chrome\Application\chrome.exe"
             "${env:ProgramFiles(x86)}\Google\Chrome\Application\chrome.exe"
             "$env:LOCALAPPDATA\Google\Chrome\Application\chrome.exe"
-        )
+        ) `
+        -SearchRoots @()
 
-    if ($ChromeInstalled) {
-        # Keep the existing Chrome taskbar shortcut code here.
+    if ($null -ne $ChromePath) {
+        $ChromeShortcut = Join-Path `
+            -Path $TaskbarShortcutDirectory `
+            -ChildPath "Google Chrome.lnk"
+
+        $ChromeShortcutCreated = New-WindowsShortcut `
+            -TargetPath $ChromePath `
+            -ShortcutPath $ChromeShortcut `
+            -IconLocation "$ChromePath,0"
+
+        if ($ChromeShortcutCreated) {
+            $TaskbarPinEntries += (
+                '                <taskbar:DesktopApp ' +
+                'DesktopApplicationLinkPath="' +
+                '%ALLUSERSPROFILE%\Microsoft\Windows\Start Menu\' +
+                'Programs\Kuma Taskbar\Google Chrome.lnk" />'
+            )
+
+            Write-Success "Google Chrome was added to the taskbar layout."
+        }
     }
     else {
-        Write-Skip (
-            "Google Chrome is not installed. " +
-            "Taskbar pin was skipped."
+        Write-Warning (
+            "Google Chrome appears to be installed, but chrome.exe " +
+            "could not be found."
         )
     }
+}
+else {
+    Write-Skip (
+        "Google Chrome is not installed. Taskbar pin was skipped."
+    )
 }
 
 # ------------------------------------------------------------
