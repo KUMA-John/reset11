@@ -21,6 +21,14 @@ Set-ExecutionPolicy -ExecutionPolicy Bypass -Scope Process -Force
 $Url = "https://raw.githubusercontent.com/KUMA-John/reset11/master/user_setup.ps1"
 $File = "$env:TEMP\user_setup.ps1"
 
+# 軟體名稱必須符合 user_setup_pm.ps1 中
+# ApplicationDefinitions 的 DisplayName。
+$ApplicationNames = @(
+    "Google Chrome"
+    "Mozilla Firefox"
+    "Telegram"
+)
+
 # 執行前先清除舊檔案
 if (Test-Path -LiteralPath $File) {
     Remove-Item `
@@ -45,7 +53,8 @@ try {
         -Scope Process `
         -Force
 
-    & $File
+    & $File `
+    -ApplicationNames $ApplicationNames
 
     if ($LASTEXITCODE -ne 0 -and $null -ne $LASTEXITCODE) {
         throw "user_setup.ps1 執行失敗，結束代碼：$LASTEXITCODE"

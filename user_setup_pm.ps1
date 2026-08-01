@@ -30,6 +30,11 @@ Set-StrictMode -Version Latest
 $ErrorActionPreference = "Stop"
 $ProgressPreference = "SilentlyContinue"
 
+
+param (
+    [Alias("Applications", "Apps")]
+    [string[]]$ApplicationNames = @()
+)
 # ============================================================
 # Application definitions
 #
@@ -1086,6 +1091,85 @@ $ApplicationDefinitions = @(
     }
 )
 
+# ============================================================
+# 0B: Select applications from command-line arguments
+# ============================================================
+
+$AllApplicationNames = @(
+    $ApplicationDefinitions |
+        ForEach-Object {
+            $_.DisplayName
+        }
+)
+
+if ($ApplicationNames.Count -eq 0) {
+    $SelectedApplicationDefinitions = @(
+        $ApplicationDefinitions
+    )
+
+    Write-Host (
+        "No application filter was specified. " +
+        "All applications will be processed."
+    )
+}
+else {
+    $InvalidApplicationNames = @(
+        $ApplicationNames |
+            Where-Object {
+                $_ -notin $AllApplicationNames
+            }
+    )
+
+    if ($InvalidApplicationNames.Count -gt 0) {
+        Write-Host ""
+        Write-Host (
+            "The following application names are invalid:"
+        ) -ForegroundColor Red
+
+        foreach ($InvalidApplicationName in $InvalidApplicationNames) {
+            Write-Host (
+                "  - " +
+                $InvalidApplicationName
+            ) -ForegroundColor Red
+        }
+
+        Write-Host ""
+        Write-Host (
+            "Valid application names:"
+        ) -ForegroundColor Yellow
+
+        foreach ($ValidApplicationName in $AllApplicationNames) {
+            Write-Host (
+                "  - " +
+                $ValidApplicationName
+            )
+        }
+
+        throw (
+            "One or more application names do not match " +
+            "ApplicationDefinitions.DisplayName."
+        )
+    }
+
+    $SelectedApplicationDefinitions = @(
+        $ApplicationDefinitions |
+            Where-Object {
+                $_.DisplayName -in $ApplicationNames
+            }
+    )
+
+    Write-Host ""
+    Write-Host (
+        "Selected applications:"
+    ) -ForegroundColor Cyan
+
+    foreach ($Application in $SelectedApplicationDefinitions) {
+        Write-Host (
+            "  - " +
+            $Application.DisplayName
+        )
+    }
+}
 
 # ============================================================
 # 0A: Common functions
@@ -2185,6 +2269,250 @@ function Install-DirectDownloadApplication {
     }
 }
 
+function Initialize-WinGet {
+    Write-Host ""
+    Write-Host "Checking Windows Package Manager..."
+
+    Refresh-EnvironmentPath
+
+    $WinGetAvailable = Test-CommandAvailable `
+        -CommandName "winget.exe"
+
+    if ($WinGetAvailable) {
+        try {
+            $WinGetVersion = & winget.exe --version
+
+            if ($LASTEXITCODE -eq 0) {
+                Write-Success (
+                    "WinGet is available: " +
+                    ($WinGetVersion | Select-Object -First 1)
+                )
+            }
+            else {
+                Write-Warning (
+                    "WinGet was detected but returned exit code " +
+                    "$LASTEXITCODE during the version check."
+                )
+
+                $WinGetAvailable = $false
+            }
+        }
+        catch {
+            Write-Warning (
+                "WinGet was detected but could not be executed: " +
+                $_.Exception.Message
+            )
+
+            $WinGetAvailable = $false
+        }
+    }
+
+    if (-not $WinGetAvailable) {
+        Write-Warning (
+            "WinGet is unavailable. Attempting installation or repair."
+        )
+
+        try {
+            $NuGetProvider = Get-PackageProvider `
+                -Name "NuGet" `
+                -ErrorAction SilentlyContinue
+
+            if ($null -eq $NuGetProvider) {
+                Install-PackageProvider `
+                    -Name "NuGet" `
+                    -MinimumVersion "2.8.5.201" `
+                    -Force `
+                    -ErrorAction Stop | Out-Null
+
+                Write-Success (
+                    "NuGet package provider was installed."
+                )
+            }
+            else {
+                Write-Skip (
+                    "NuGet package provider is already installed."
+                )
+            }
+
+            $PowerShellGallery = Get-PSRepository `
+                -Name "PSGallery" `
+                -ErrorAction SilentlyContinue
+
+            if ($null -eq $PowerShellGallery) {
+                Register-PSRepository `
+                    -Default `
+                    -ErrorAction Stop
+            }
+
+            Set-PSRepository `
+                -Name "PSGallery" `
+                -InstallationPolicy Trusted `
+                -ErrorAction Stop
+
+            Install-Module `
+                -Name "Microsoft.WinGet.Client" `
+                -Repository "PSGallery" `
+                -Scope AllUsers `
+                -Force `
+                -AllowClobber `
+                -ErrorAction Stop
+
+            Import-Module `
+                -Name "Microsoft.WinGet.Client" `
+                -Force `
+                -ErrorAction Stop
+
+            Repair-WinGetPackageManager `
+                -AllUsers `
+                -ErrorAction Stop
+
+            Write-Success (
+                "WinGet installation or repair completed."
+            )
+        }
+        catch {
+            Write-Failure (
+                "WinGet installation or repair failed: " +
+                $_.Exception.Message
+            )
+
+            return $false
+        }
+
+        Refresh-EnvironmentPath
+        Start-Sleep -Seconds 3
+
+        if (
+            -not (
+                Test-CommandAvailable `
+                    -CommandName "winget.exe"
+            )
+        ) {
+            Write-Failure (
+                "WinGet is still unavailable after installation or repair."
+            )
+
+            return $false
+        }
+    }
+
+    try {
+        $WinGetVersion = & winget.exe --version
+        $VersionExitCode = $LASTEXITCODE
+
+        if ($VersionExitCode -ne 0) {
+            Write-Failure (
+                "WinGet verification returned exit code " +
+                "$VersionExitCode."
+            )
+
+            return $false
+        }
+
+        Write-Success (
+            "WinGet verification completed: " +
+            ($WinGetVersion | Select-Object -First 1)
+        )
+    }
+    catch {
+        Write-Failure (
+            "Unable to verify WinGet: " +
+            $_.Exception.Message
+        )
+
+        return $false
+    }
+
+    try {
+        Write-Host "Resetting WinGet sources..."
+
+        & winget.exe source reset `
+            --force `
+            --disable-interactivity
+
+        $SourceResetExitCode = $LASTEXITCODE
+
+        if ($SourceResetExitCode -eq 0) {
+            Write-Success "WinGet sources were reset."
+        }
+        else {
+            Write-Warning (
+                "WinGet source reset returned exit code " +
+                "$SourceResetExitCode."
+            )
+        }
+
+        Write-Host "Updating WinGet sources..."
+
+        & winget.exe source update `
+            --disable-interactivity
+
+        $SourceUpdateExitCode = $LASTEXITCODE
+
+        if ($SourceUpdateExitCode -eq 0) {
+            Write-Success "WinGet sources were updated."
+        }
+        else {
+            Write-Warning (
+                "WinGet source update returned exit code " +
+                "$SourceUpdateExitCode."
+            )
+        }
+    }
+    catch {
+        Write-Warning (
+            "Unable to reset or update WinGet sources: " +
+            $_.Exception.Message
+        )
+    }
+
+    foreach ($SourceName in @("winget", "msstore")) {
+        try {
+            Write-Host (
+                "Initializing WinGet source: " +
+                $SourceName
+            )
+
+            $SearchArguments = @(
+                "search"
+                "--query"
+                "Microsoft"
+                "--source"
+                $SourceName
+                "--accept-source-agreements"
+                "--disable-interactivity"
+            )
+
+            & winget.exe @SearchArguments | Out-Null
+
+            $InitializationExitCode = $LASTEXITCODE
+
+            if ($InitializationExitCode -eq 0) {
+                Write-Success (
+                    "WinGet source '$SourceName' was initialized."
+                )
+            }
+            else {
+                Write-Warning (
+                    "WinGet source '$SourceName' returned exit code " +
+                    "$InitializationExitCode during initialization."
+                )
+            }
+        }
+        catch {
+            Write-Warning (
+                "Unable to initialize WinGet source " +
+                "'${SourceName}': " +
+                $_.Exception.Message
+            )
+        }
+    }
+
+    $global:LASTEXITCODE = 0
+
+    return $true
+}
+
 # ============================================================
 # Step 1A: Verify administrator privileges
 # ============================================================
@@ -2281,7 +2609,7 @@ catch {
 }
 
 # ============================================================
-# Step 3: Enable Microsoft .NET Framework 3.5
+# Step 3A: Enable Microsoft .NET Framework 3.5
 # ============================================================
 Write-Step "Step 3: Enable Microsoft .NET Framework 3.5"
 
@@ -2314,11 +2642,32 @@ catch {
 }
 
 # ============================================================
+# Step 3B: Initialize WinGet
+# ============================================================
+Write-Step (
+    "Step 4A: Initialize WinGet"
+)
+
+$WinGetReady = Initialize-WinGet
+
+if ($WinGetReady) {
+    Write-Success (
+        "WinGet is installed and initialized."
+    )
+}
+else {
+    Write-Warning (
+        "WinGet initialization failed. " +
+        "WinGet and Microsoft Store installations may fail."
+    )
+}
+
+# ============================================================
 # Step 4A: Install ChocolateyFirst Applications"
 # ============================================================
 Write-Step "Step 4A: Install ChocolateyFirst Applications"
 
-foreach ($Application in $ApplicationDefinitions) {
+foreach ($Application in $SelectedApplicationDefinitions) {
     if ($Application.InstallType -ne "ChocolateyFirst") {
         continue
     }
@@ -2328,6 +2677,10 @@ foreach ($Application in $ApplicationDefinitions) {
 }
 
 Refresh-EnvironmentPath
+
+# ============================================================
+# Step 4B: Open Surfshark Browser Extension Pages
+# ============================================================
 
 # ============================================================
 # Step 4B: Open Surfshark Browser Extension Pages
@@ -2346,65 +2699,91 @@ $FirefoxExtensionUrl = (
     "surfshark-vpn-proxy/"
 )
 
-$ChromeApplication = Get-ApplicationDefinition `
-    -DisplayName "Google Chrome"
+$ChromeWasSelected = (
+    $SelectedApplicationDefinitions.DisplayName -contains
+    "Google Chrome"
+)
 
-$FirefoxApplication = Get-ApplicationDefinition `
-    -DisplayName "Mozilla Firefox"
+$FirefoxWasSelected = (
+    $SelectedApplicationDefinitions.DisplayName -contains
+    "Mozilla Firefox"
+)
 
-$ChromePath = Find-ApplicationExecutableFromDefinition `
-    -Application $ChromeApplication
+if ($ChromeWasSelected) {
+    $ChromeApplication = Get-ApplicationDefinition `
+        -DisplayName "Google Chrome"
 
-$FirefoxPath = Find-ApplicationExecutableFromDefinition `
-    -Application $FirefoxApplication
+    $ChromePath = Find-ApplicationExecutableFromDefinition `
+        -Application $ChromeApplication
 
-if ($null -ne $ChromePath) {
-    try {
-        Start-Process `
-            -FilePath $ChromePath `
-            -ArgumentList @($ChromeExtensionUrl) `
-            -ErrorAction Stop
+    if ($null -ne $ChromePath) {
+        try {
+            Start-Process `
+                -FilePath $ChromePath `
+                -ArgumentList @($ChromeExtensionUrl) `
+                -ErrorAction Stop
 
-        Write-Success (
-            "Opened the Surfshark extension page in Google Chrome."
-        )
+            Write-Success (
+                "Opened the Surfshark extension page in Google Chrome."
+            )
+        }
+        catch {
+            Write-Warning (
+                "Unable to open the Surfshark page in Chrome: " +
+                $_.Exception.Message
+            )
+        }
     }
-    catch {
+    else {
         Write-Warning (
-            "Unable to open the Surfshark page in Chrome: " +
-            $_.Exception.Message
+            "Google Chrome was selected, but its executable " +
+            "could not be found."
         )
     }
 }
 else {
-    Write-Warning (
-        "Google Chrome was not found. " +
-        "Its Surfshark extension page was not opened."
+    Write-Skip (
+        "Google Chrome was not selected. " +
+        "Its Surfshark extension page was skipped."
     )
 }
 
-if ($null -ne $FirefoxPath) {
-    try {
-        Start-Process `
-            -FilePath $FirefoxPath `
-            -ArgumentList @($FirefoxExtensionUrl) `
-            -ErrorAction Stop
+if ($FirefoxWasSelected) {
+    $FirefoxApplication = Get-ApplicationDefinition `
+        -DisplayName "Mozilla Firefox"
 
-        Write-Success (
-            "Opened the Surfshark extension page in Mozilla Firefox."
-        )
+    $FirefoxPath = Find-ApplicationExecutableFromDefinition `
+        -Application $FirefoxApplication
+
+    if ($null -ne $FirefoxPath) {
+        try {
+            Start-Process `
+                -FilePath $FirefoxPath `
+                -ArgumentList @($FirefoxExtensionUrl) `
+                -ErrorAction Stop
+
+            Write-Success (
+                "Opened the Surfshark extension page in Mozilla Firefox."
+            )
+        }
+        catch {
+            Write-Warning (
+                "Unable to open the Surfshark page in Firefox: " +
+                $_.Exception.Message
+            )
+        }
     }
-    catch {
+    else {
         Write-Warning (
-            "Unable to open the Surfshark page in Firefox: " +
-            $_.Exception.Message
+            "Mozilla Firefox was selected, but its executable " +
+            "could not be found."
         )
     }
 }
 else {
-    Write-Warning (
-        "Mozilla Firefox was not found. " +
-        "Its Surfshark extension page was not opened."
+    Write-Skip (
+        "Mozilla Firefox was not selected. " +
+        "Its Surfshark extension page was skipped."
     )
 }
 
@@ -2413,7 +2792,7 @@ else {
 # ============================================================
 Write-Step "Step 5: Install Remaining Applications"
 
-foreach ($Application in $ApplicationDefinitions) {
+foreach ($Application in $SelectedApplicationDefinitions) {
     # ChocolateyFirst applications were already installed
     # before the browser extension pages were opened.
     if ($Application.InstallType -eq "ChocolateyFirst") {
@@ -2436,7 +2815,7 @@ $PublicDesktop = [Environment]::GetFolderPath(
     "CommonDesktopDirectory"
 )
 
-foreach ($Application in $ApplicationDefinitions) {
+foreach ($Application in $SelectedApplicationDefinitions) {
     if ($Application.CreateDesktopShortcut -ne $true) {
         continue
     }
@@ -2501,7 +2880,7 @@ foreach ($Application in $ApplicationDefinitions) {
 
 Write-Step "Step 7: Configure Application Startup"
 
-foreach ($Application in $ApplicationDefinitions) {
+foreach ($Application in $SelectedApplicationDefinitions) {
     if ($null -eq $Application.StartupAction) {
         continue
     }
@@ -2677,7 +3056,7 @@ catch {
     )
 }
 
-foreach ($Application in $ApplicationDefinitions) {
+foreach ($Application in $SelectedApplicationDefinitions) {
     if ($Application.CreateTaskbarShortcut -ne $true) {
         continue
     }
@@ -3186,7 +3565,7 @@ Write-Host ""
 $InstalledApplicationCount = 0
 $MissingApplicationCount = 0
 
-foreach ($Application in $ApplicationDefinitions) {
+foreach ($Application in $SelectedApplicationDefinitions) {
     $ApplicationInstalled = Test-ApplicationInstalled `
         -DisplayNamePatterns $Application.DisplayNamePatterns `
         -ExecutablePaths $Application.ExecutablePaths `
