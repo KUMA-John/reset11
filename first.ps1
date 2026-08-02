@@ -18,7 +18,7 @@ Set-ExecutionPolicy -ExecutionPolicy Bypass -Scope Process -Force
 
 
 
-$Url = "https://raw.githubusercontent.com/KUMA-John/reset11/master/user_setup.ps1"
+$Url = "https://raw.githubusercontent.com/KUMA-John/reset11/master/user_setup_pm.ps1"
 
 $FileName = [System.IO.Path]::GetFileName(([Uri]$Url).AbsolutePath)
 $File = Join-Path -Path $env:TEMP -ChildPath $FileName
