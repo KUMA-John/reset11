@@ -8,18 +8,16 @@
 .DESCRIPTION
     This script performs the following tasks:
 
-    1. Installs Chocolatey if it is not already installed
-    2. Install Chocolatey
-    3. Enables Microsoft .NET Framework 3.5
-    4. Installs common applications through Chocolatey
-    5. Verify or initialize WinGet
-    6. Install Other software
-    7. Creates desktop shortcut
-    8. Creates and Remove startup shortcut
-    9. Configures display and sleep power settings
-    10. Configure Windows 11 taskbar pins for installed applications
-    11. Display results
-    12. Restarts the computer automatically unless Enter is pressed
+    1. Checks administrator privileges
+    2. Installs Chocolatey if it is not already installed
+    3. Verifies or initializes WinGet
+    4. Installs selected applications
+    5. Creates desktop shortcuts
+    6. Creates or removes startup shortcuts
+    7. Configures display and sleep power settings
+    8. Configures Windows 11 taskbar pins
+    9. Displays installation results
+    10. Restarts the computer automatically unless Enter is pressed
 
 .NOTES
     Run this script from Windows PowerShell as Administrator.
@@ -193,6 +191,37 @@ $ApplicationDefinitions = @(
 
         InstallType               = "ChocolateyRemaining"
         ChocoName                 = "vcredist2015"
+        WingetId                  = $null
+        WingetSource              = $null
+        MsStoreId                 = $null
+        InstallerDirectDownload  = $null
+        InstallerFileName        = $null
+        InstallerArguments       = @()
+
+        CreateDesktopShortcut     = $false
+        DesktopShortcutName       = $null
+
+        CreateTaskbarShortcut     = $false
+        TaskbarShortcutName       = $null
+
+        StartupAction             = $null
+        StartupNames              = @()
+        ProcessNames              = @()
+        ServiceNames              = @()
+        AppxNamePatterns          = @()
+    }
+
+    [pscustomobject]@{
+        DisplayName               = "Microsoft .NET Framework 3.5"
+        DisplayNamePatterns       = @(
+            "Microsoft .NET Framework 3.5*"
+        )
+        ExecutablePaths           = @()
+        ExecutableName            = $null
+        SearchRoots               = @()
+
+        InstallType               = "ChocolateyRemaining"
+        ChocoName                 = "dotnet3.5"
         WingetId                  = $null
         WingetSource              = $null
         MsStoreId                 = $null
@@ -2609,43 +2638,10 @@ catch {
 }
 
 # ============================================================
-# Step 3A: Enable Microsoft .NET Framework 3.5
-# ============================================================
-Write-Step "Step 3: Enable Microsoft .NET Framework 3.5"
-
-try {
-    $NetFx3Feature = Get-WindowsOptionalFeature `
-        -Online `
-        -FeatureName NetFx3 `
-        -ErrorAction Stop
-
-    if ($NetFx3Feature.State -eq "Enabled") {
-        Write-Skip ".NET Framework 3.5 is already enabled."
-    }
-    else {
-        Enable-WindowsOptionalFeature `
-            -Online `
-            -FeatureName NetFx3 `
-            -All `
-            -NoRestart `
-            -ErrorAction Stop | Out-Null
-
-        Write-Success ".NET Framework 3.5 was enabled."
-        $RestartRecommended = $true
-    }
-}
-catch {
-    Write-Failure (
-        "Unable to enable .NET Framework 3.5: " +
-        $_.Exception.Message
-    )
-}
-
-# ============================================================
-# Step 3B: Initialize WinGet
+# Step 3: Initialize WinGet
 # ============================================================
 Write-Step (
-    "Step 4A: Initialize WinGet"
+    "Step 3: Initialize WinGet"
 )
 
 $WinGetReady = Initialize-WinGet
