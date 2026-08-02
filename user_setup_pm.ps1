@@ -82,6 +82,8 @@ $ApplicationDefinitions = @(
         CreateTaskbarShortcut     = $true
         TaskbarShortcutName       = "Google Chrome"
 
+        AppUserModelId = $null
+
         StartupAction             = $null
         StartupNames              = @(
             "Google Chrome"
@@ -126,6 +128,8 @@ $ApplicationDefinitions = @(
         CreateTaskbarShortcut     = $true
         TaskbarShortcutName       = "Mozilla Firefox"
 
+        AppUserModelId = $null
+
         StartupAction             = $null
         StartupNames              = @(
             "Mozilla Firefox"
@@ -167,6 +171,8 @@ $ApplicationDefinitions = @(
 
         CreateTaskbarShortcut     = $false
         TaskbarShortcutName       = "7-Zip"
+        
+        AppUserModelId = $null
 
         StartupAction             = $null
         StartupNames              = @()
@@ -203,6 +209,8 @@ $ApplicationDefinitions = @(
 
         CreateTaskbarShortcut     = $false
         TaskbarShortcutName       = $null
+        
+        AppUserModelId = $null
 
         StartupAction             = $null
         StartupNames              = @()
@@ -234,6 +242,8 @@ $ApplicationDefinitions = @(
 
         CreateTaskbarShortcut     = $false
         TaskbarShortcutName       = $null
+        
+        AppUserModelId = $null
 
         StartupAction             = $null
         StartupNames              = @()
@@ -265,6 +275,8 @@ $ApplicationDefinitions = @(
 
         CreateTaskbarShortcut     = $false
         TaskbarShortcutName       = $null
+        
+        AppUserModelId = $null
 
         StartupAction             = $null
         StartupNames              = @()
@@ -303,6 +315,8 @@ $ApplicationDefinitions = @(
 
         CreateTaskbarShortcut     = $false
         TaskbarShortcutName       = $null
+        
+        AppUserModelId = $null
 
         StartupAction             = $null
         StartupNames              = @()
@@ -341,6 +355,8 @@ $ApplicationDefinitions = @(
 
         CreateTaskbarShortcut     = $false
         TaskbarShortcutName       = $null
+        
+        AppUserModelId = $null
 
         StartupAction             = $null
         StartupNames              = @()
@@ -384,6 +400,8 @@ $ApplicationDefinitions = @(
 
         CreateTaskbarShortcut     = $true
         TaskbarShortcutName       = "Telegram"
+        
+        AppUserModelId = $null
 
         StartupAction             = $null
         StartupNames              = @(
@@ -434,6 +452,8 @@ $ApplicationDefinitions = @(
 
         CreateTaskbarShortcut     = $false
         TaskbarShortcutName       = "Element"
+        
+        AppUserModelId = $null
 
         StartupAction             = $null
         StartupNames              = @(
@@ -478,6 +498,8 @@ $ApplicationDefinitions = @(
 
         CreateTaskbarShortcut     = $false
         TaskbarShortcutName       = $null
+        
+        AppUserModelId = $null
 
         StartupAction             = $null
         StartupNames              = @()
@@ -515,6 +537,8 @@ $ApplicationDefinitions = @(
 
         CreateTaskbarShortcut     = $false
         TaskbarShortcutName       = "WireGuard"
+        
+        AppUserModelId = $null
 
         StartupAction             = $null
         StartupNames              = @(
@@ -566,6 +590,8 @@ $ApplicationDefinitions = @(
 
         CreateTaskbarShortcut     = $false
         TaskbarShortcutName       = "AnyDesk"
+        
+        AppUserModelId = $null
 
         StartupAction             = $false
         StartupNames              = @(
@@ -613,6 +639,8 @@ $ApplicationDefinitions = @(
 
         CreateTaskbarShortcut     = $false
         TaskbarShortcutName       = $null
+        
+        AppUserModelId = $null
 
         StartupAction             = $null
         StartupNames              = @()
@@ -648,6 +676,11 @@ $ApplicationDefinitions = @(
 
         CreateTaskbarShortcut     = $true
         TaskbarShortcutName       = "Sticky Notes"
+
+        AppUserModelId            = (
+            "Microsoft.MicrosoftStickyNotes_" +
+            "8wekyb3d8bbwe!App"
+        )    
 
         StartupAction             = $null
         StartupNames              = @()
@@ -698,6 +731,8 @@ $ApplicationDefinitions = @(
     
         CreateTaskbarShortcut     = $false
         TaskbarShortcutName       = "Microsoft Teams"
+        
+        AppUserModelId = $null
     
         StartupAction             = $false
     
@@ -773,6 +808,8 @@ $ApplicationDefinitions = @(
 
         CreateTaskbarShortcut     = $false
         TaskbarShortcutName       = "Outline Client"
+        
+        AppUserModelId = $null
 
         StartupAction             = $null
         StartupNames              = @(
@@ -875,6 +912,8 @@ $ApplicationDefinitions = @(
 
         CreateTaskbarShortcut     = $false
         TaskbarShortcutName       = "Axure RP 10"
+        
+        AppUserModelId = $null
 
         StartupAction             = $null
         StartupNames              = @(
@@ -919,6 +958,11 @@ $ApplicationDefinitions = @(
         CreateTaskbarShortcut     = $true
         TaskbarShortcutName       = "Calculator"
 
+        AppUserModelId            = (
+            "Microsoft.WindowsCalculator_" +
+            "8wekyb3d8bbwe!App"
+        )
+
         StartupAction             = $null
         StartupNames              = @()
         ProcessNames              = @(
@@ -956,6 +1000,8 @@ $ApplicationDefinitions = @(
 
         CreateTaskbarShortcut     = $false
         TaskbarShortcutName       = "Remote Desktop Connection"
+        
+        AppUserModelId = $null
 
         StartupAction             = $null
         StartupNames              = @()
@@ -1006,6 +1052,8 @@ $ApplicationDefinitions = @(
 
         CreateTaskbarShortcut     = $false
         TaskbarShortcutName       = "Microsoft OneDrive"
+        
+        AppUserModelId = $null
 
         StartupAction             = $false
         StartupNames              = @(
@@ -1104,6 +1152,8 @@ $ApplicationDefinitions = @(
 
         CreateTaskbarShortcut     = $false
         TaskbarShortcutName       = "Snipaste"
+        
+        AppUserModelId = $null
 
         StartupAction             = $true
         StartupNames              = @(
@@ -3072,22 +3122,32 @@ foreach ($Application in $SelectedApplicationDefinitions) {
         continue
     }
 
+    $AppUserModelId = $null
+
+    $AppUserModelIdProperty = $Application.PSObject.Properties[
+        "AppUserModelId"
+    ]
+    
+    if ($null -ne $AppUserModelIdProperty) {
+        $AppUserModelId = [string]$AppUserModelIdProperty.Value
+    }
+    
     if (
         -not [string]::IsNullOrWhiteSpace(
-            $Application.AppUserModelId
+            $AppUserModelId
         )
     ) {
         $TaskbarPinEntries += (
             '        <taskbar:UWA AppUserModelID="' +
-            $Application.AppUserModelId +
+            $AppUserModelId +
             '" />'
         )
-
+    
         Write-Success (
             $Application.DisplayName +
             " was added to the taskbar layout."
         )
-
+    
         continue
     }
 
