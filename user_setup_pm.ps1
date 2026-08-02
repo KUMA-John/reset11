@@ -33,6 +33,8 @@ Set-StrictMode -Version Latest
 $ErrorActionPreference = "Stop"
 $ProgressPreference = "SilentlyContinue"
 
+$SoftwareDirectory = $env:TEMP
+
 # ============================================================
 # Application definitions
 #
