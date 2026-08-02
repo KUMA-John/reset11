@@ -28,7 +28,7 @@ $File = Join-Path -Path $env:TEMP -ChildPath $FileName
 $ApplicationNames = @(
     "Google Chrome"
     "Mozilla Firefox"
-    "Telegram"
+    "Telegram Desktop"
 )
 
 # 執行前先清除舊檔案
@@ -59,7 +59,7 @@ try {
     -ApplicationNames $ApplicationNames
 
     if ($LASTEXITCODE -ne 0 -and $null -ne $LASTEXITCODE) {
-        throw "user_setup.ps1 執行失敗，結束代碼：$LASTEXITCODE"
+        throw "執行失敗，結束代碼：$LASTEXITCODE"
     }
 }
 finally {
