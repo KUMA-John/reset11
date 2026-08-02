@@ -26,15 +26,15 @@
     All comments and messages use ASCII characters only.
 #>
 
-Set-StrictMode -Version Latest
-$ErrorActionPreference = "Stop"
-$ProgressPreference = "SilentlyContinue"
-
-
 param (
     [Alias("Applications", "Apps")]
     [string[]]$ApplicationNames = @()
 )
+
+Set-StrictMode -Version Latest
+$ErrorActionPreference = "Stop"
+$ProgressPreference = "SilentlyContinue"
+
 # ============================================================
 # Application definitions
 #
