@@ -26,7 +26,6 @@ $File = Join-Path -Path $env:TEMP -ChildPath $FileName
 # 軟體名稱必須符合 user_setup_pm.ps1 中
 # ApplicationDefinitions 的 DisplayName。
 $ApplicationNames = @(
-    "Microsoft .NET Framework 3.5"
     "Google Chrome"
     "Mozilla Firefox"
 )

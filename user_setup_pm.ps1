@@ -221,38 +221,38 @@ $ApplicationDefinitions = @(
         AppxNamePatterns          = @()
     }
 
-    [pscustomobject]@{
-        DisplayName               = "Microsoft .NET Framework 3.5"
-        DisplayNamePatterns       = @(
-            "Microsoft .NET Framework 3.5*"
-        )
-        ExecutablePaths           = @()
-        ExecutableName            = $null
-        SearchRoots               = @()
+    # [pscustomobject]@{
+    #     DisplayName               = "Microsoft .NET Framework 3.5"
+    #     DisplayNamePatterns       = @(
+    #         "Microsoft .NET Framework 3.5*"
+    #     )
+    #     ExecutablePaths           = @()
+    #     ExecutableName            = $null
+    #     SearchRoots               = @()
 
-        InstallType               = "ChocolateyRemaining"
-        ChocoName                 = "dotnet3.5"
-        WingetId                  = $null
-        WingetSource              = $null
-        MsStoreId                 = $null
-        InstallerDirectDownload  = $null
-        InstallerFileName        = $null
-        InstallerArguments       = @()
+    #     InstallType               = "ChocolateyRemaining"
+    #     ChocoName                 = "dotnet3.5"
+    #     WingetId                  = $null
+    #     WingetSource              = $null
+    #     MsStoreId                 = $null
+    #     InstallerDirectDownload  = $null
+    #     InstallerFileName        = $null
+    #     InstallerArguments       = @()
 
-        CreateDesktopShortcut     = $false
-        DesktopShortcutName       = $null
+    #     CreateDesktopShortcut     = $false
+    #     DesktopShortcutName       = $null
 
-        CreateTaskbarShortcut     = $false
-        TaskbarShortcutName       = $null
+    #     CreateTaskbarShortcut     = $false
+    #     TaskbarShortcutName       = $null
         
-        AppUserModelId = $null
+    #     AppUserModelId = $null
 
-        StartupAction             = $null
-        StartupNames              = @()
-        ProcessNames              = @()
-        ServiceNames              = @()
-        AppxNamePatterns          = @()
-    }
+    #     StartupAction             = $null
+    #     StartupNames              = @()
+    #     ProcessNames              = @()
+    #     ServiceNames              = @()
+    #     AppxNamePatterns          = @()
+    # }
 
     [pscustomobject]@{
         DisplayName               = "Microsoft .NET Framework"
@@ -287,85 +287,85 @@ $ApplicationDefinitions = @(
         AppxNamePatterns          = @()
     }
 
-    [pscustomobject]@{
-        DisplayName               = "Microsoft .NET 8 Runtime"
-        DisplayNamePatterns       = @(
-            "Microsoft .NET Runtime - 8*"
-            "Microsoft .NET Runtime 8*"
-        )
-        ExecutablePaths           = @(
-            "$env:ProgramFiles\dotnet\dotnet.exe"
-            "${env:ProgramFiles(x86)}\dotnet\dotnet.exe"
-        )
-        ExecutableName            = "dotnet.exe"
-        SearchRoots               = @(
-            "$env:ProgramFiles\dotnet"
-            "${env:ProgramFiles(x86)}\dotnet"
-        )
+    # [pscustomobject]@{
+    #     DisplayName               = "Microsoft .NET 8 Runtime"
+    #     DisplayNamePatterns       = @(
+    #         "Microsoft .NET Runtime - 8*"
+    #         "Microsoft .NET Runtime 8*"
+    #     )
+    #     ExecutablePaths           = @(
+    #         "$env:ProgramFiles\dotnet\dotnet.exe"
+    #         "${env:ProgramFiles(x86)}\dotnet\dotnet.exe"
+    #     )
+    #     ExecutableName            = "dotnet.exe"
+    #     SearchRoots               = @(
+    #         "$env:ProgramFiles\dotnet"
+    #         "${env:ProgramFiles(x86)}\dotnet"
+    #     )
 
-        InstallType               = "ChocolateyRemaining"
-        ChocoName                 = "dotnet-8.0-runtime"
-        WingetId                  = $null
-        WingetSource              = $null
-        MsStoreId                 = $null
-        InstallerDirectDownload  = $null
-        InstallerFileName        = $null
-        InstallerArguments       = @()
+    #     InstallType               = "ChocolateyRemaining"
+    #     ChocoName                 = "dotnet-8.0-runtime"
+    #     WingetId                  = $null
+    #     WingetSource              = $null
+    #     MsStoreId                 = $null
+    #     InstallerDirectDownload  = $null
+    #     InstallerFileName        = $null
+    #     InstallerArguments       = @()
 
-        CreateDesktopShortcut     = $false
-        DesktopShortcutName       = $null
+    #     CreateDesktopShortcut     = $false
+    #     DesktopShortcutName       = $null
 
-        CreateTaskbarShortcut     = $false
-        TaskbarShortcutName       = $null
+    #     CreateTaskbarShortcut     = $false
+    #     TaskbarShortcutName       = $null
         
-        AppUserModelId = $null
+    #     AppUserModelId = $null
 
-        StartupAction             = $null
-        StartupNames              = @()
-        ProcessNames              = @()
-        ServiceNames              = @()
-        AppxNamePatterns          = @()
-    }
+    #     StartupAction             = $null
+    #     StartupNames              = @()
+    #     ProcessNames              = @()
+    #     ServiceNames              = @()
+    #     AppxNamePatterns          = @()
+    # }
 
-    [pscustomobject]@{
-        DisplayName               = "Microsoft .NET 8 Desktop Runtime"
-        DisplayNamePatterns       = @(
-            "Microsoft Windows Desktop Runtime - 8*"
-            "Microsoft .NET Desktop Runtime 8*"
-        )
-        ExecutablePaths           = @(
-            "$env:ProgramFiles\dotnet\dotnet.exe"
-            "${env:ProgramFiles(x86)}\dotnet\dotnet.exe"
-        )
-        ExecutableName            = "dotnet.exe"
-        SearchRoots               = @(
-            "$env:ProgramFiles\dotnet"
-            "${env:ProgramFiles(x86)}\dotnet"
-        )
+    # [pscustomobject]@{
+    #     DisplayName               = "Microsoft .NET 8 Desktop Runtime"
+    #     DisplayNamePatterns       = @(
+    #         "Microsoft Windows Desktop Runtime - 8*"
+    #         "Microsoft .NET Desktop Runtime 8*"
+    #     )
+    #     ExecutablePaths           = @(
+    #         "$env:ProgramFiles\dotnet\dotnet.exe"
+    #         "${env:ProgramFiles(x86)}\dotnet\dotnet.exe"
+    #     )
+    #     ExecutableName            = "dotnet.exe"
+    #     SearchRoots               = @(
+    #         "$env:ProgramFiles\dotnet"
+    #         "${env:ProgramFiles(x86)}\dotnet"
+    #     )
 
-        InstallType               = "ChocolateyRemaining"
-        ChocoName                 = "dotnet-8.0-desktopruntime"
-        WingetId                  = $null
-        WingetSource              = $null
-        MsStoreId                 = $null
-        InstallerDirectDownload  = $null
-        InstallerFileName        = $null
-        InstallerArguments       = @()
+    #     InstallType               = "ChocolateyRemaining"
+    #     ChocoName                 = "dotnet-8.0-desktopruntime"
+    #     WingetId                  = $null
+    #     WingetSource              = $null
+    #     MsStoreId                 = $null
+    #     InstallerDirectDownload  = $null
+    #     InstallerFileName        = $null
+    #     InstallerArguments       = @()
 
-        CreateDesktopShortcut     = $false
-        DesktopShortcutName       = $null
+    #     CreateDesktopShortcut     = $false
+    #     DesktopShortcutName       = $null
 
-        CreateTaskbarShortcut     = $false
-        TaskbarShortcutName       = $null
+    #     CreateTaskbarShortcut     = $false
+    #     TaskbarShortcutName       = $null
         
-        AppUserModelId = $null
+    #     AppUserModelId = $null
 
-        StartupAction             = $null
-        StartupNames              = @()
-        ProcessNames              = @()
-        ServiceNames              = @()
-        AppxNamePatterns          = @()
-    }
+    #     StartupAction             = $null
+    #     StartupNames              = @()
+    #     ProcessNames              = @()
+    #     ServiceNames              = @()
+    #     AppxNamePatterns          = @()
+    # }
 
     [pscustomobject]@{
         DisplayName               = "Telegram Desktop"
@@ -2759,10 +2759,10 @@ if ($PowerSettingsConfigured) {
     Write-Success "Power settings were configured."
 
     Write-Host ""
-    Write-Host "Battery display timeout: 5 minutes"
-    Write-Host "Battery sleep timeout: 30 minutes"
-    Write-Host "AC display timeout: 30 minutes"
-    Write-Host "AC sleep timeout: 300 minutes"
+    Write-Host "Battery display timeout: 240 minutes"
+    Write-Host "Battery sleep timeout: 240 minutes"
+    Write-Host "AC display timeout: 240 minutes"
+    Write-Host "AC sleep timeout: 240 minutes"
 }
 
 
