@@ -56,7 +56,7 @@ try {
         -Force
 
     & $File `
-    -ApplicationNames $ApplicationNames
+    # -ApplicationNames $ApplicationNames
 
     if ($LASTEXITCODE -ne 0 -and $null -ne $LASTEXITCODE) {
         throw "執行失敗，結束代碼：$LASTEXITCODE"

@@ -2594,6 +2594,106 @@ function Initialize-WinGet {
     return $true
 }
 
+function Set-WindowsPowerSettings {
+    param (
+        [Nullable[int]]$BatteryMonitorTimeoutMinutes = $null,
+
+        [Nullable[int]]$BatterySleepTimeoutMinutes = $null,
+
+        [Nullable[int]]$AcMonitorTimeoutMinutes = $null,
+
+        [Nullable[int]]$AcSleepTimeoutMinutes = $null
+    )
+
+    try {
+        if ($null -ne $BatteryMonitorTimeoutMinutes) {
+            & powercfg.exe /change `
+                monitor-timeout-dc `
+                $BatteryMonitorTimeoutMinutes
+
+            if ($LASTEXITCODE -ne 0) {
+                throw (
+                    "Unable to set the battery display timeout. " +
+                    "Exit code: $LASTEXITCODE"
+                )
+            }
+
+            Write-Success (
+                "Battery display timeout was set to " +
+                "$BatteryMonitorTimeoutMinutes minutes."
+            )
+        }
+
+        if ($null -ne $BatterySleepTimeoutMinutes) {
+            & powercfg.exe /change `
+                standby-timeout-dc `
+                $BatterySleepTimeoutMinutes
+
+            if ($LASTEXITCODE -ne 0) {
+                throw (
+                    "Unable to set the battery sleep timeout. " +
+                    "Exit code: $LASTEXITCODE"
+                )
+            }
+
+            Write-Success (
+                "Battery sleep timeout was set to " +
+                "$BatterySleepTimeoutMinutes minutes."
+            )
+        }
+
+        if ($null -ne $AcMonitorTimeoutMinutes) {
+            & powercfg.exe /change `
+                monitor-timeout-ac `
+                $AcMonitorTimeoutMinutes
+
+            if ($LASTEXITCODE -ne 0) {
+                throw (
+                    "Unable to set the AC display timeout. " +
+                    "Exit code: $LASTEXITCODE"
+                )
+            }
+
+            Write-Success (
+                "AC display timeout was set to " +
+                "$AcMonitorTimeoutMinutes minutes."
+            )
+        }
+
+        if ($null -ne $AcSleepTimeoutMinutes) {
+            & powercfg.exe /change `
+                standby-timeout-ac `
+                $AcSleepTimeoutMinutes
+
+            if ($LASTEXITCODE -ne 0) {
+                throw (
+                    "Unable to set the AC sleep timeout. " +
+                    "Exit code: $LASTEXITCODE"
+                )
+            }
+
+            Write-Success (
+                "AC sleep timeout was set to " +
+                "$AcSleepTimeoutMinutes minutes."
+            )
+        }
+
+        return $true
+    }
+    catch {
+        Write-Failure (
+            "Unable to configure power settings: " +
+            $_.Exception.Message
+        )
+
+        return $false
+    }
+    finally {
+        # 避免 powercfg 的結束碼影響後續腳本判斷。
+        $global:LASTEXITCODE = 0
+    }
+}
+
 # ============================================================
 # Step 1A: Verify administrator privileges
 # ============================================================
@@ -2640,6 +2740,31 @@ catch {
         $_.Exception.Message
     )
 }
+
+# ============================================================
+# Step 1C: Initial Power Setting: Keep display active for four hours
+# ============================================================
+
+Write-Step (
+    "Initial Power Setting: Set display timeout to four hours"
+)
+
+$PowerSettingsConfigured = Set-WindowsPowerSettings `
+    -BatteryMonitorTimeoutMinutes 240 `
+    -BatterySleepTimeoutMinutes 240 `
+    -AcMonitorTimeoutMinutes 240 `
+    -AcSleepTimeoutMinutes 240
+
+if ($PowerSettingsConfigured) {
+    Write-Success "Power settings were configured."
+
+    Write-Host ""
+    Write-Host "Battery display timeout: 5 minutes"
+    Write-Host "Battery sleep timeout: 30 minutes"
+    Write-Host "AC display timeout: 30 minutes"
+    Write-Host "AC sleep timeout: 300 minutes"
+}
+
 
 # ============================================================
 # Step 2: Install Chocolatey
@@ -3013,40 +3138,13 @@ foreach ($Application in $SelectedApplicationDefinitions) {
 
 Write-Step "Step 8: Configure Power Settings"
 
-try {
-    # Battery:
-    # Turn off display after 5 minutes.
-    # Put the computer to sleep after 30 minutes.
+$PowerSettingsConfigured = Set-WindowsPowerSettings `
+    -BatteryMonitorTimeoutMinutes 5 `
+    -BatterySleepTimeoutMinutes 30 `
+    -AcMonitorTimeoutMinutes 30 `
+    -AcSleepTimeoutMinutes 300
 
-    powercfg.exe /change monitor-timeout-dc 5
-
-    if ($LASTEXITCODE -ne 0) {
-        throw "Unable to set the battery display timeout."
-    }
-
-    powercfg.exe /change standby-timeout-dc 30
-
-    if ($LASTEXITCODE -ne 0) {
-        throw "Unable to set the battery sleep timeout."
-    }
-
-    # AC power:
-    # Turn off display after 30 minutes.
-    # Put the computer to sleep after 5 hours.
-    # The powercfg value is specified in minutes, so 5 hours is 300.
-
-    powercfg.exe /change monitor-timeout-ac 30
-
-    if ($LASTEXITCODE -ne 0) {
-        throw "Unable to set the AC display timeout."
-    }
-
-    powercfg.exe /change standby-timeout-ac 300
-
-    if ($LASTEXITCODE -ne 0) {
-        throw "Unable to set the AC sleep timeout."
-    }
-
+if ($PowerSettingsConfigured) {
     Write-Success "Power settings were configured."
 
     Write-Host ""
@@ -3054,12 +3152,6 @@ try {
     Write-Host "Battery sleep timeout: 30 minutes"
     Write-Host "AC display timeout: 30 minutes"
     Write-Host "AC sleep timeout: 300 minutes"
-}
-catch {
-    Write-Failure (
-        "Unable to configure power settings: " +
-        $_.Exception.Message
-    )
 }
 
 # ============================================================
