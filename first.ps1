@@ -16,7 +16,9 @@ Set-ExecutionPolicy -ExecutionPolicy Bypass -Scope Process -Force
 
 
 
-
+# ============================================================
+# PM version
+# ============================================================
 
 $Url = "https://raw.githubusercontent.com/KUMA-John/reset11/master/user_setup_pm.ps1"
 
@@ -28,9 +30,13 @@ $File = Join-Path -Path $env:TEMP -ChildPath $FileName
 $ApplicationNames = @(
     "Google Chrome"
     "Mozilla Firefox"
+    "Surfshark"
+    "Outline Client"
     "Microsoft Sticky Notes"
     "Calculator"
     "Telegram Desktop"
+    "Axure RP 10"
+    "WireGuard"
 )
 
 # 執行前先清除舊檔案
