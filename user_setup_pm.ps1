@@ -2273,40 +2273,153 @@ function Install-DirectDownloadApplication {
             -LiteralPath $InstallerPath `
             -ErrorAction SilentlyContinue
 
-        Write-Success (
-            $Application.DisplayName +
-            " installer was downloaded."
-        )
-
-        $InstallerProcess = Start-Process `
-            -FilePath $InstallerPath `
-            -ArgumentList $Application.InstallerArguments `
-            -Wait `
-            -PassThru `
+        # Confirm that the downloaded installer exists and is not empty.
+        $InstallerFile = Get-Item `
+            -LiteralPath $InstallerPath `
             -ErrorAction Stop
 
-        Write-Host (
-            $Application.DisplayName +
-            " installer exit code: " +
-            $InstallerProcess.ExitCode
-        )
-
-        if (
-            $InstallerProcess.ExitCode -in @(
-                1641
-                3010
+        if ($InstallerFile.Length -le 0) {
+            throw (
+                $Application.DisplayName +
+                " installer was downloaded, but the file is empty."
             )
-        ) {
-            $script:RestartRecommended = $true
         }
 
+        # Verify the Authenticode signature before execution.
+        $InstallerSignature = Get-AuthenticodeSignature `
+            -FilePath $InstallerPath
+
+        if ($InstallerSignature.Status -ne "Valid") {
+            throw (
+                $Application.DisplayName +
+                " installer signature is not valid. Status: " +
+                $InstallerSignature.Status
+            )
+        }
+
+        Write-Success (
+            $Application.DisplayName +
+            " installer was downloaded and verified."
+        )
+
+        Write-Host (
+            "Installer size: " +
+            $InstallerFile.Length +
+            " bytes"
+        )
+
+        Write-Host (
+            "Installer signer: " +
+            $InstallerSignature.SignerCertificate.Subject
+        )
+
+        # Allow Defender or endpoint protection to finish scanning
+        # the newly downloaded installer.
         Start-Sleep -Seconds 5
 
-        $ApplicationInstalled = Test-ApplicationInstalled `
-            -DisplayNamePatterns $Application.DisplayNamePatterns `
-            -ExecutablePaths $Application.ExecutablePaths `
-            -AppxNamePatterns $Application.AppxNamePatterns `
-            -ServiceNames $Application.ServiceNames
+        $MaximumInstallAttempts = 2
+        $InstallerExitCode = $null
+
+        for (
+            $InstallAttempt = 1
+            $InstallAttempt -le $MaximumInstallAttempts
+            $InstallAttempt++
+        ) {
+            Write-Host (
+                "Starting " +
+                $Application.DisplayName +
+                " installer. Attempt " +
+                "$InstallAttempt of $MaximumInstallAttempts..."
+            )
+
+            try {
+                $InstallerProcess = Start-Process `
+                    -FilePath $InstallerPath `
+                    -ArgumentList $Application.InstallerArguments `
+                    -Wait `
+                    -PassThru `
+                    -ErrorAction Stop
+
+                $InstallerExitCode = $InstallerProcess.ExitCode
+
+                Write-Host (
+                    $Application.DisplayName +
+                    " installer exit code: " +
+                    $InstallerExitCode
+                )
+
+                if ($InstallerExitCode -in @(0, 1641, 3010)) {
+                    if ($InstallerExitCode -in @(1641, 3010)) {
+                        $script:RestartRecommended = $true
+                    }
+
+                    break
+                }
+
+                Write-Warning (
+                    $Application.DisplayName +
+                    " installer returned exit code " +
+                    $InstallerExitCode +
+                    "."
+                )
+            }
+            catch {
+                Write-Warning (
+                    $Application.DisplayName +
+                    " installer attempt " +
+                    $InstallAttempt +
+                    " failed: " +
+                    $_.Exception.Message
+                )
+            }
+
+            if ($InstallAttempt -lt $MaximumInstallAttempts) {
+                Write-Host (
+                    "Waiting 10 seconds before retrying " +
+                    $Application.DisplayName +
+                    "..."
+                )
+
+                Start-Sleep -Seconds 10
+            }
+        }
+
+        # Some bootstrapper installers may return before all files and
+        # uninstall registry entries are visible. Poll for up to 60 seconds.
+        $ApplicationInstalled = $false
+        $VerificationAttempts = 12
+        $VerificationIntervalSeconds = 5
+
+        for (
+            $VerificationAttempt = 1
+            $VerificationAttempt -le $VerificationAttempts
+            $VerificationAttempt++
+        ) {
+            $ApplicationInstalled = Test-ApplicationInstalled `
+                -DisplayNamePatterns $Application.DisplayNamePatterns `
+                -ExecutablePaths $Application.ExecutablePaths `
+                -AppxNamePatterns $Application.AppxNamePatterns `
+                -ServiceNames $Application.ServiceNames
+
+            if ($ApplicationInstalled) {
+                break
+            }
+
+            if (
+                $VerificationAttempt -lt
+                $VerificationAttempts
+            ) {
+                Write-Host (
+                    "Waiting for " +
+                    $Application.DisplayName +
+                    " installation detection. Check " +
+                    "$VerificationAttempt of $VerificationAttempts..."
+                )
+
+                Start-Sleep `
+                    -Seconds $VerificationIntervalSeconds
+            }
+        }
 
         if ($ApplicationInstalled) {
             Write-Success (
@@ -2319,7 +2432,9 @@ function Install-DirectDownloadApplication {
 
         Write-Warning (
             $Application.DisplayName +
-            " installation could not be verified."
+            " installation could not be verified. " +
+            "Last installer exit code: " +
+            $InstallerExitCode
         )
 
         return $false
