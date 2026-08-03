@@ -28,6 +28,9 @@ $File = Join-Path -Path $env:TEMP -ChildPath $FileName
 $ApplicationNames = @(
     "Google Chrome"
     "Mozilla Firefox"
+    "Microsoft Sticky Notes"
+    "Calculator"
+    "Telegram Desktop"
 )
 
 # 執行前先清除舊檔案
