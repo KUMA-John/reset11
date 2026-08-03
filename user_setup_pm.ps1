@@ -542,7 +542,7 @@ $ApplicationDefinitions = @(
         
         AppUserModelId = $null
 
-        StartupAction             = $null
+        StartupAction             = $true
         StartupNames              = @(
             "WireGuard"
         )
@@ -3186,7 +3186,13 @@ $UserTaskbarLayoutPath = Join-Path `
     -Path $UserShellDirectory `
     -ChildPath "LayoutModification.xml"
 
-$TaskbarPinEntries = @()
+# Keep File Explorer as the first pinned application.
+$TaskbarPinEntries = @(
+    '                <taskbar:DesktopApp ' +
+    'DesktopApplicationID="Microsoft.Windows.Explorer" />'
+)
+
+Write-Success "File Explorer was added to the taskbar layout."
 
 try {
     foreach ($Directory in @(
