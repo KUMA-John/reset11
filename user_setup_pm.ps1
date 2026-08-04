@@ -53,6 +53,47 @@ $ApplicationDefinitions = @(
     # ========================================================
 
     [pscustomobject]@{
+        DisplayName               = "NirCmd"
+        DisplayNamePatterns       = @(
+            "NirCmd*"
+            "NirSoft NirCmd*"
+        )
+        ExecutablePaths           = @(
+            "$env:ChocolateyInstall\bin\nircmd.exe"
+            "$env:ChocolateyInstall\lib\nircmd\tools\nircmd.exe"
+            "$env:WINDIR\nircmd.exe"
+        )
+        ExecutableName            = "nircmd.exe"
+        SearchRoots               = @(
+            "$env:ChocolateyInstall\bin"
+            "$env:ChocolateyInstall\lib\nircmd"
+        )
+
+        InstallType               = "ChocolateyFirst"
+        ChocoName                 = "nircmd"
+        WingetId                  = $null
+        WingetSource              = $null
+        MsStoreId                 = $null
+        InstallerDirectDownload  = $null
+        InstallerFileName        = $null
+        InstallerArguments       = @()
+
+        CreateDesktopShortcut     = $false
+        DesktopShortcutName       = $null
+
+        CreateTaskbarShortcut     = $false
+        TaskbarShortcutName       = $null
+        
+        AppUserModelId = $null
+
+        StartupAction             = $null
+        StartupNames              = @()
+        ProcessNames              = @()
+        ServiceNames              = @()
+        AppxNamePatterns          = @()
+    }
+    
+    [pscustomobject]@{
         DisplayName               = "Google Chrome"
         DisplayNamePatterns       = @(
             "Google Chrome*"
@@ -465,47 +506,6 @@ $ApplicationDefinitions = @(
         ProcessNames              = @(
             "Element"
         )
-        ServiceNames              = @()
-        AppxNamePatterns          = @()
-    }
-
-    [pscustomobject]@{
-        DisplayName               = "NirCmd"
-        DisplayNamePatterns       = @(
-            "NirCmd*"
-            "NirSoft NirCmd*"
-        )
-        ExecutablePaths           = @(
-            "$env:ChocolateyInstall\bin\nircmd.exe"
-            "$env:ChocolateyInstall\lib\nircmd\tools\nircmd.exe"
-            "$env:WINDIR\nircmd.exe"
-        )
-        ExecutableName            = "nircmd.exe"
-        SearchRoots               = @(
-            "$env:ChocolateyInstall\bin"
-            "$env:ChocolateyInstall\lib\nircmd"
-        )
-
-        InstallType               = "ChocolateyRemaining"
-        ChocoName                 = "nircmd"
-        WingetId                  = $null
-        WingetSource              = $null
-        MsStoreId                 = $null
-        InstallerDirectDownload  = $null
-        InstallerFileName        = $null
-        InstallerArguments       = @()
-
-        CreateDesktopShortcut     = $false
-        DesktopShortcutName       = $null
-
-        CreateTaskbarShortcut     = $false
-        TaskbarShortcutName       = $null
-        
-        AppUserModelId = $null
-
-        StartupAction             = $null
-        StartupNames              = @()
-        ProcessNames              = @()
         ServiceNames              = @()
         AppxNamePatterns          = @()
     }
