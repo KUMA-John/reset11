@@ -2169,6 +2169,146 @@ function Install-ApplicationFromDefinition {
     }
 }
 
+function Retry-FailedApplicationInstallations {
+    param (
+        [Parameter(Mandatory)]
+        [psobject[]]$Applications,
+
+        [int]$DetectionDelaySeconds = 10
+    )
+
+    Write-Host ""
+    Write-Host (
+        "Waiting $DetectionDelaySeconds seconds before checking " +
+        "installation results..."
+    )
+
+    Start-Sleep -Seconds $DetectionDelaySeconds
+
+    Refresh-EnvironmentPath
+
+    # --------------------------------------------------------
+    # Detect applications that are still not installed
+    # --------------------------------------------------------
+
+    $FailedApplications = @()
+
+    foreach ($Application in $Applications) {
+        # BuiltIn and DetectOnly are not applications that should
+        # be installed again.
+        if (
+            $Application.InstallType -in @(
+                "BuiltIn"
+                "DetectOnly"
+            )
+        ) {
+            continue
+        }
+
+        $ApplicationInstalled = Test-ApplicationInstalled `
+            -DisplayNamePatterns $Application.DisplayNamePatterns `
+            -ExecutablePaths $Application.ExecutablePaths `
+            -AppxNamePatterns $Application.AppxNamePatterns `
+            -ServiceNames $Application.ServiceNames
+
+        if ($ApplicationInstalled) {
+            Write-Success (
+                $Application.DisplayName +
+                " was detected after the first installation attempt."
+            )
+
+            continue
+        }
+
+        Write-Warning (
+            $Application.DisplayName +
+            " was not detected after the first installation attempt."
+        )
+
+        $FailedApplications += $Application
+    }
+
+    if ($FailedApplications.Count -eq 0) {
+        Write-Success (
+            "All selected applications were detected. " +
+            "No installation retry is required."
+        )
+
+        return @()
+    }
+
+    Write-Host ""
+    Write-Warning (
+        "$($FailedApplications.Count) application(s) will be " +
+        "installed one more time."
+    )
+
+    foreach ($Application in $FailedApplications) {
+        Write-Host ""
+        Write-Host (
+            "Retrying application installation: " +
+            $Application.DisplayName
+        ) -ForegroundColor Yellow
+
+        try {
+            Install-ApplicationFromDefinition `
+                -Application $Application | Out-Null
+        }
+        catch {
+            Write-Failure (
+                "The retry failed for " +
+                $Application.DisplayName +
+                ": " +
+                $_.Exception.Message
+            )
+        }
+
+        Refresh-EnvironmentPath
+    }
+
+    # Allow installers and registry registration to finish.
+    Write-Host ""
+    Write-Host (
+        "Waiting $DetectionDelaySeconds seconds before verifying " +
+        "the retry results..."
+    )
+
+    Start-Sleep -Seconds $DetectionDelaySeconds
+
+    Refresh-EnvironmentPath
+
+    # --------------------------------------------------------
+    # Verify retry results
+    # --------------------------------------------------------
+
+    $StillFailedApplications = @()
+
+    foreach ($Application in $FailedApplications) {
+        $ApplicationInstalled = Test-ApplicationInstalled `
+            -DisplayNamePatterns $Application.DisplayNamePatterns `
+            -ExecutablePaths $Application.ExecutablePaths `
+            -AppxNamePatterns $Application.AppxNamePatterns `
+            -ServiceNames $Application.ServiceNames
+
+        if ($ApplicationInstalled) {
+            Write-Success (
+                $Application.DisplayName +
+                " was installed successfully on the second attempt."
+            )
+        }
+        else {
+            Write-Failure (
+                $Application.DisplayName +
+                " is still not detected after the second attempt."
+            )
+
+            $StillFailedApplications += $Application
+        }
+    }
+
+    return @($StillFailedApplications)
+}
+
 function Install-DirectDownloadApplication {
     param (
         [Parameter(Mandatory)]
@@ -2852,14 +2992,59 @@ foreach ($Application in $SelectedApplicationDefinitions) {
 Refresh-EnvironmentPath
 
 # ============================================================
-# Step 4B: Open Surfshark Browser Extension Pages
+# Step 4B: Install Remaining Applications
 # ============================================================
+Write-Step "Step 4B: Install Remaining Applications"
+
+foreach ($Application in $SelectedApplicationDefinitions) {
+    # ChocolateyFirst applications were already installed
+    # before the browser extension pages were opened.
+    if ($Application.InstallType -eq "ChocolateyFirst") {
+        continue
+    }
+
+    Install-ApplicationFromDefinition `
+        -Application $Application | Out-Null
+
+    Refresh-EnvironmentPath
+}
 
 # ============================================================
-# Step 4B: Open Surfshark Browser Extension Pages
+# Step 4C: Retry Failed Application Installations
 # ============================================================
 
-Write-Step "Step 4B: Open Surfshark Browser Extension Pages"
+Write-Step "Step 4C: Retry Failed Application Installations"
+
+$ApplicationsStillFailed = @(
+    Retry-FailedApplicationInstallations `
+        -Applications $SelectedApplicationDefinitions `
+        -DetectionDelaySeconds 10
+)
+
+if ($ApplicationsStillFailed.Count -eq 0) {
+    Write-Success (
+        "All selected installable applications were detected."
+    )
+}
+else {
+    Write-Warning (
+        "$($ApplicationsStillFailed.Count) application(s) are still " +
+        "not detected after the retry."
+    )
+
+    foreach ($Application in $ApplicationsStillFailed) {
+        Write-Warning (
+            "Installation was not verified: " +
+            $Application.DisplayName
+        )
+    }
+}
+
+# ============================================================
+# Step 5: Open Surfshark Browser Extension Pages
+# ============================================================
+
+Write-Step "Step 5: Open Surfshark Browser Extension Pages"
 
 $ChromeExtensionUrl = (
     "https://chrome.google.com/webstore/detail/" +
@@ -2960,23 +3145,6 @@ else {
     )
 }
 
-# ============================================================
-# Step 5: Install Remaining Applications
-# ============================================================
-Write-Step "Step 5: Install Remaining Applications"
-
-foreach ($Application in $SelectedApplicationDefinitions) {
-    # ChocolateyFirst applications were already installed
-    # before the browser extension pages were opened.
-    if ($Application.InstallType -eq "ChocolateyFirst") {
-        continue
-    }
-
-    Install-ApplicationFromDefinition `
-        -Application $Application | Out-Null
-
-    Refresh-EnvironmentPath
-}
 
 # ============================================================
 # Step 6: Create Desktop Shortcuts
