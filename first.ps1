@@ -36,8 +36,10 @@ $ApplicationNames = @(
     "Microsoft Sticky Notes"
     "Calculator"
     "Telegram Desktop"
+    "Element Desktop"
     "Axure RP 10"
     "WireGuard"
+    "Remote Desktop Connection"
 )
 
 # 執行前先清除舊檔案

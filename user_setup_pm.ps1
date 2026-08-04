@@ -92,7 +92,7 @@ $ApplicationDefinitions = @(
         ServiceNames              = @()
         AppxNamePatterns          = @()
     }
-    
+
     [pscustomobject]@{
         DisplayName               = "Google Chrome"
         DisplayNamePatterns       = @(
@@ -119,7 +119,7 @@ $ApplicationDefinitions = @(
         InstallerFileName        = $null
         InstallerArguments       = @()
 
-        CreateDesktopShortcut     = $false
+        CreateDesktopShortcut     = $true
         DesktopShortcutName       = "Google Chrome"
 
         CreateTaskbarShortcut     = $true
@@ -165,7 +165,7 @@ $ApplicationDefinitions = @(
         InstallerFileName        = $null
         InstallerArguments       = @()
 
-        CreateDesktopShortcut     = $false
+        CreateDesktopShortcut     = $true
         DesktopShortcutName       = "Mozilla Firefox"
 
         CreateTaskbarShortcut     = $true
@@ -173,7 +173,7 @@ $ApplicationDefinitions = @(
 
         AppUserModelId = $null
 
-        StartupAction             = $null
+        StartupAction             = $false
         StartupNames              = @(
             "Mozilla Firefox"
             "Firefox"
@@ -438,7 +438,7 @@ $ApplicationDefinitions = @(
         InstallerFileName        = $null
         InstallerArguments       = @()
 
-        CreateDesktopShortcut     = $false
+        CreateDesktopShortcut     = $true
         DesktopShortcutName       = "Telegram"
 
         CreateTaskbarShortcut     = $true
@@ -493,7 +493,7 @@ $ApplicationDefinitions = @(
         CreateDesktopShortcut     = $false
         DesktopShortcutName       = "Element"
 
-        CreateTaskbarShortcut     = $false
+        CreateTaskbarShortcut     = $true
         TaskbarShortcutName       = "Element"
         
         AppUserModelId = $null
@@ -537,12 +537,12 @@ $ApplicationDefinitions = @(
         CreateDesktopShortcut     = $false
         DesktopShortcutName       = "WireGuard"
 
-        CreateTaskbarShortcut     = $false
+        CreateTaskbarShortcut     = $true
         TaskbarShortcutName       = "WireGuard"
         
         AppUserModelId = $null
 
-        StartupAction             = $true
+        StartupAction             = $false
         StartupNames              = @(
             "WireGuard"
         )
@@ -731,7 +731,7 @@ $ApplicationDefinitions = @(
         CreateDesktopShortcut     = $false
         DesktopShortcutName       = "Microsoft Teams"
     
-        CreateTaskbarShortcut     = $false
+        CreateTaskbarShortcut     = $true
         TaskbarShortcutName       = "Microsoft Teams"
         
         AppUserModelId = $null
@@ -808,12 +808,12 @@ $ApplicationDefinitions = @(
         CreateDesktopShortcut     = $false
         DesktopShortcutName       = "Outline Client"
 
-        CreateTaskbarShortcut     = $false
+        CreateTaskbarShortcut     = $true
         TaskbarShortcutName       = "Outline Client"
         
         AppUserModelId = $null
 
-        StartupAction             = $null
+        StartupAction             = $false
         StartupNames              = @(
             "Outline"
             "Outline Client"
@@ -862,10 +862,10 @@ $ApplicationDefinitions = @(
         CreateDesktopShortcut     = $false
         DesktopShortcutName       = "Surfshark"
 
-        CreateTaskbarShortcut     = $false
+        CreateTaskbarShortcut     = $true
         TaskbarShortcutName       = "Surfshark"
 
-        StartupAction             = $null
+        StartupAction             = $false
         StartupNames              = @(
             "Surfshark"
         )
@@ -909,10 +909,10 @@ $ApplicationDefinitions = @(
             "LaunchAxureRp=0"
         )
 
-        CreateDesktopShortcut     = $false
+        CreateDesktopShortcut     = $true
         DesktopShortcutName       = "Axure RP 10"
 
-        CreateTaskbarShortcut     = $false
+        CreateTaskbarShortcut     = $true
         TaskbarShortcutName       = "Axure RP 10"
         
         AppUserModelId = $null
@@ -1000,7 +1000,7 @@ $ApplicationDefinitions = @(
         CreateDesktopShortcut     = $true
         DesktopShortcutName       = "Remote Desktop Connection"
 
-        CreateTaskbarShortcut     = $false
+        CreateTaskbarShortcut     = $true
         TaskbarShortcutName       = "Remote Desktop Connection"
         
         AppUserModelId = $null
