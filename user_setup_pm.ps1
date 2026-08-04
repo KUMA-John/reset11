@@ -84,7 +84,7 @@ $ApplicationDefinitions = @(
         CreateTaskbarShortcut     = $false
         TaskbarShortcutName       = $null
         
-        AppUserModelId = $null
+        AppUserModelId            = $null
 
         StartupAction             = $null
         StartupNames              = @()
@@ -125,7 +125,7 @@ $ApplicationDefinitions = @(
         CreateTaskbarShortcut     = $true
         TaskbarShortcutName       = "Google Chrome"
 
-        AppUserModelId = $null
+        AppUserModelId            = $null
 
         StartupAction             = $null
         StartupNames              = @(
@@ -165,13 +165,13 @@ $ApplicationDefinitions = @(
         InstallerFileName        = $null
         InstallerArguments       = @()
 
-        CreateDesktopShortcut     = $true
+        CreateDesktopShortcut     = $false
         DesktopShortcutName       = "Mozilla Firefox"
 
         CreateTaskbarShortcut     = $true
         TaskbarShortcutName       = "Mozilla Firefox"
 
-        AppUserModelId = $null
+        AppUserModelId            = $null
 
         StartupAction             = $false
         StartupNames              = @(
@@ -215,7 +215,7 @@ $ApplicationDefinitions = @(
         CreateTaskbarShortcut     = $false
         TaskbarShortcutName       = "7-Zip"
         
-        AppUserModelId = $null
+        AppUserModelId            = $null
 
         StartupAction             = $null
         StartupNames              = @()
@@ -253,7 +253,7 @@ $ApplicationDefinitions = @(
         CreateTaskbarShortcut     = $false
         TaskbarShortcutName       = $null
         
-        AppUserModelId = $null
+        AppUserModelId            = $null
 
         StartupAction             = $null
         StartupNames              = @()
@@ -286,7 +286,7 @@ $ApplicationDefinitions = @(
     #     CreateTaskbarShortcut     = $false
     #     TaskbarShortcutName       = $null
         
-    #     AppUserModelId = $null
+    #     AppUserModelId            = $null
 
     #     StartupAction             = $null
     #     StartupNames              = @()
@@ -319,7 +319,7 @@ $ApplicationDefinitions = @(
         CreateTaskbarShortcut     = $false
         TaskbarShortcutName       = $null
         
-        AppUserModelId = $null
+        AppUserModelId            = $null
 
         StartupAction             = $null
         StartupNames              = @()
@@ -444,7 +444,7 @@ $ApplicationDefinitions = @(
         CreateTaskbarShortcut     = $true
         TaskbarShortcutName       = "Telegram"
         
-        AppUserModelId = $null
+        AppUserModelId            = $null
 
         StartupAction             = $null
         StartupNames              = @(
@@ -496,7 +496,7 @@ $ApplicationDefinitions = @(
         CreateTaskbarShortcut     = $true
         TaskbarShortcutName       = "Element"
         
-        AppUserModelId = $null
+        AppUserModelId            = $null
 
         StartupAction             = $null
         StartupNames              = @(
@@ -540,7 +540,7 @@ $ApplicationDefinitions = @(
         CreateTaskbarShortcut     = $true
         TaskbarShortcutName       = "WireGuard"
         
-        AppUserModelId = $null
+        AppUserModelId            = $null
 
         StartupAction             = $false
         StartupNames              = @(
@@ -593,7 +593,7 @@ $ApplicationDefinitions = @(
         CreateTaskbarShortcut     = $false
         TaskbarShortcutName       = "AnyDesk"
         
-        AppUserModelId = $null
+        AppUserModelId            = $null
 
         StartupAction             = $false
         StartupNames              = @(
@@ -642,7 +642,7 @@ $ApplicationDefinitions = @(
         CreateTaskbarShortcut     = $false
         TaskbarShortcutName       = $null
         
-        AppUserModelId = $null
+        AppUserModelId            = $null
 
         StartupAction             = $null
         StartupNames              = @()
@@ -731,12 +731,12 @@ $ApplicationDefinitions = @(
         CreateDesktopShortcut     = $false
         DesktopShortcutName       = "Microsoft Teams"
     
-        CreateTaskbarShortcut     = $true
+        CreateTaskbarShortcut     = $false
         TaskbarShortcutName       = "Microsoft Teams"
         
-        AppUserModelId = $null
+        AppUserModelId            = $null
     
-        StartupAction             = $false
+        StartupAction             = $null
     
         StartupNames              = @(
             "Teams"
@@ -811,7 +811,7 @@ $ApplicationDefinitions = @(
         CreateTaskbarShortcut     = $true
         TaskbarShortcutName       = "Outline Client"
         
-        AppUserModelId = $null
+        AppUserModelId            = $null
 
         StartupAction             = $false
         StartupNames              = @(
@@ -915,7 +915,7 @@ $ApplicationDefinitions = @(
         CreateTaskbarShortcut     = $true
         TaskbarShortcutName       = "Axure RP 10"
         
-        AppUserModelId = $null
+        AppUserModelId            = $null
 
         StartupAction             = $null
         StartupNames              = @(
